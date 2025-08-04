@@ -10,9 +10,20 @@ authors = [
     { name = "Lauro Müller", email = "contact@lauromueller.com" }
 ]
 license = { text = "MIT" }
-dependencies = []
+dependencies = [
+    "click==8.2.1"
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+]
+
+[project.scripts]
+ai-toolbox = "ai_toolbox.main:cli"
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.1",
+    "pytest-mock==3.14.1"
 ]
