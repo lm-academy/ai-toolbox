@@ -11,7 +11,9 @@ authors = [
 ]
 license = { text = "MIT" }
 dependencies = [
-    "click==8.2.1"
+    "click==8.2.1",
+    "python-dotenv==1.1.1",
+    "litellm==1.74.14"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
