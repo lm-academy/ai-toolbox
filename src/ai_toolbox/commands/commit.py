@@ -94,16 +94,9 @@ def commit() -> None:
             )
             return
 
-        # For now, just display the diff (will be replaced with LLM integration later)
-        click.echo("[commit] Retrieved staged changes:")
-        click.echo(staged_diff)
-
         commit_prompt = COMMIT_MESSAGE_PROMPT_TEMPLATE.format(
             diff=staged_diff
         )
-
-        click.echo("\n[commit] Commit message prompt:")
-        click.echo(commit_prompt)
 
         # Inform the user we're generating the commit message
         click.echo(
