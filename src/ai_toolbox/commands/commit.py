@@ -113,6 +113,10 @@ def commit(ctx: click.Context) -> None:
     """
     logger.info("Starting commit command")
 
+    # Get model from context
+    model = ctx.obj.get("model", "openai/gpt-4o-mini")
+    logger.debug(f"Using model for commit command: {model}")
+
     try:
         logger.debug("Retrieving staged changes from git")
         staged_diff = get_staged_diff()
@@ -163,10 +167,10 @@ def commit(ctx: click.Context) -> None:
 
                 # Call the LLM to generate the commit message
                 logger.debug(
-                    f"Calling LLM completion with {len(messages)} messages"
+                    f"Calling LLM completion with {len(messages)} messages using model {model}"
                 )
                 response: Any = completion(
-                    model="openai/gpt-4o-mini",
+                    model=model,
                     messages=messages,
                 )
                 logger.debug(

@@ -43,7 +43,7 @@ class TestLoggingSetup:
         assert (
             logging.getLogger("openai").level == logging.WARNING
         )
-        assert logging.getLogger("litellm").level == logging.INFO
+        assert logging.getLogger("LiteLLM").level == logging.INFO
 
     def test_setup_logging_third_party_levels_non_verbose(self):
         """Test that third-party library log levels are set appropriately in non-verbose mode."""
@@ -58,7 +58,7 @@ class TestLoggingSetup:
             logging.getLogger("openai").level == logging.WARNING
         )
         assert (
-            logging.getLogger("litellm").level == logging.WARNING
+            logging.getLogger("LiteLLM").level == logging.WARNING
         )
 
     def test_setup_logging_format(self):

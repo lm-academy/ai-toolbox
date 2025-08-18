@@ -117,7 +117,9 @@ class TestCommitCommand:
         mock_get_staged_diff.return_value = ""
 
         # Act
-        result = self.runner.invoke(commit)
+        result = self.runner.invoke(
+            commit, obj={"model": "openai/gpt-4o-mini"}
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -134,7 +136,9 @@ class TestCommitCommand:
         mock_get_staged_diff.return_value = "   \n\t  \n"
 
         # Act
-        result = self.runner.invoke(commit)
+        result = self.runner.invoke(
+            commit, obj={"model": "openai/gpt-4o-mini"}
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -173,7 +177,11 @@ class TestCommitCommand:
         )
 
         # Act - simulate user choosing "1" (approve)
-        result = self.runner.invoke(commit, input="1\n")
+        result = self.runner.invoke(
+            commit,
+            input="1\n",
+            obj={"model": "openai/gpt-4o-mini"},
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -227,7 +235,11 @@ class TestCommitCommand:
         )
 
         # Act - simulate user choosing "3" (abort)
-        result = self.runner.invoke(commit, input="3\n")
+        result = self.runner.invoke(
+            commit,
+            input="3\n",
+            obj={"model": "openai/gpt-4o-mini"},
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -284,7 +296,9 @@ class TestCommitCommand:
 
         # Act - simulate user choosing "2" (adjust), providing feedback, then "1" (approve)
         result = self.runner.invoke(
-            commit, input="2\nMake it more descriptive\n1\n"
+            commit,
+            input="2\nMake it more descriptive\n1\n",
+            obj={"model": "openai/gpt-4o-mini"},
         )
 
         # Assert
@@ -351,7 +365,11 @@ class TestCommitCommand:
         )
 
         # Act - simulate user choosing "1" (approve)
-        result = self.runner.invoke(commit, input="1\n")
+        result = self.runner.invoke(
+            commit,
+            input="1\n",
+            obj={"model": "openai/gpt-4o-mini"},
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -380,7 +398,9 @@ class TestCommitCommand:
         )
 
         # Act
-        result = self.runner.invoke(commit)
+        result = self.runner.invoke(
+            commit, obj={"model": "openai/gpt-4o-mini"}
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -407,7 +427,9 @@ class TestCommitCommand:
         )
 
         # Act
-        result = self.runner.invoke(commit)
+        result = self.runner.invoke(
+            commit, obj={"model": "openai/gpt-4o-mini"}
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -440,7 +462,11 @@ class TestCommitCommand:
         )
 
         # Act - simulate user choosing "1" (approve)
-        result = self.runner.invoke(commit, input="1\n")
+        result = self.runner.invoke(
+            commit,
+            input="1\n",
+            obj={"model": "openai/gpt-4o-mini"},
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -467,7 +493,9 @@ class TestCommitCommand:
         )
 
         # Act
-        result = self.runner.invoke(commit)
+        result = self.runner.invoke(
+            commit, obj={"model": "openai/gpt-4o-mini"}
+        )
 
         # Assert
         assert (
@@ -487,7 +515,9 @@ class TestCommitCommand:
         )
 
         # Act
-        result = self.runner.invoke(commit)
+        result = self.runner.invoke(
+            commit, obj={"model": "openai/gpt-4o-mini"}
+        )
 
         # Assert
         assert (
@@ -627,6 +657,7 @@ class TestCommitCommandEdgeCases:
         result = self.runner.invoke(
             commit,
             input="2\nMake it longer\n2\nAdd file extension\n1\n",
+            obj={"model": "openai/gpt-4o-mini"},
         )
 
         # Assert
@@ -677,7 +708,11 @@ class TestCommitCommandEdgeCases:
 
         # Act - simulate user entering invalid choice (4), then valid choice (1)
         # Note: click.IntRange should handle this, but we test the behavior
-        result = self.runner.invoke(commit, input="4\n1\n")
+        result = self.runner.invoke(
+            commit,
+            input="4\n1\n",
+            obj={"model": "openai/gpt-4o-mini"},
+        )
 
         # Assert
         assert result.exit_code == 0
@@ -714,7 +749,11 @@ class TestCommitCommandEdgeCases:
         )
 
         # Act
-        result = self.runner.invoke(commit, input="1\n")
+        result = self.runner.invoke(
+            commit,
+            input="1\n",
+            obj={"model": "openai/gpt-4o-mini"},
+        )
 
         # Assert
         assert result.exit_code == 0
