@@ -7,6 +7,41 @@ generates a commit message based on staged changes.
 import subprocess
 import click
 
+COMMIT_MESSAGE_PROMPT_TEMPLATE = """You are an expert software developer tasked with generating a concise and informative commit message based on the provided git diff.
+
+**Instructions:**
+1. Follow the Conventional Commits specification (https://www.conventionalcommits.org/)
+2. Use this format: `<type>[optional scope]: <description>`
+3. Keep the first line (title) under 50 characters
+4. Use imperative mood (e.g., "add", "fix", "update", not "added", "fixed", "updated")
+5. Start with lowercase after the colon
+6. Do not end the title with a period
+
+**Common types:**
+- feat: new feature
+- fix: bug fix
+- docs: documentation changes
+- style: formatting, missing semicolons, etc.
+- refactor: code change that neither fixes a bug nor adds a feature
+- test: adding or modifying tests
+- chore: maintenance tasks, dependencies, build process
+- perf: performance improvements
+- ci: continuous integration changes
+
+**Output format:**
+- First line: commit title following conventional commits
+- Afterwards, a blank line followed by commit body with additional details
+- Return only the commit message text, no extra formatting or explanations
+- In case of a breaking change, please add BREAKING CHANGE: <description> in the commit body
+
+**Git diff to analyze:**
+
+<diff>
+{diff}
+</diff>
+
+Generate an appropriate commit message based on the changes shown in the diff above."""
+
 
 def get_staged_diff() -> str:
     """Get the staged git diff.
@@ -58,6 +93,13 @@ def commit() -> None:
         # For now, just display the diff (will be replaced with LLM integration later)
         click.echo("[commit] Retrieved staged changes:")
         click.echo(staged_diff)
+
+        commit_prompt = COMMIT_MESSAGE_PROMPT_TEMPLATE.format(
+            diff=staged_diff
+        )
+
+        click.echo("\n[commit] Commit message prompt:")
+        click.echo(commit_prompt)
 
     except subprocess.CalledProcessError as e:
         click.echo(f"Error running git command: {e}", err=True)
