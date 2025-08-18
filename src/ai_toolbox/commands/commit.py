@@ -126,13 +126,6 @@ def commit() -> None:
                 click.echo(generated_message)
                 click.echo("----- End commit message -----\n")
 
-                # If not running interactively (tests/non-tty), skip confirmation
-                if not sys.stdin.isatty():
-                    click.echo(
-                        "Non-interactive session detected; skipping commit prompt."
-                    )
-                    return
-
                 # Offer numeric choices to the user (default: Approve)
                 click.echo(
                     "Choose one of the following actions:\n"
