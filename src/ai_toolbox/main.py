@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 from litellm import completion
 from litellm.exceptions import AuthenticationError
 
+from .commands import commit
+
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -44,6 +46,7 @@ def hello():
 
 
 cli.add_command(hello)
+cli.add_command(commit)
 
 if __name__ == "__main__":
     cli()
