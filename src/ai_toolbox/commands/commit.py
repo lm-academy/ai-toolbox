@@ -6,6 +6,10 @@ generates a commit message based on staged changes.
 
 import subprocess
 import click
+import sys
+from typing import Any
+from litellm import completion
+from litellm.exceptions import AuthenticationError
 
 COMMIT_MESSAGE_PROMPT_TEMPLATE = """You are an expert software developer tasked with generating a concise and informative commit message based on the provided git diff.
 
@@ -100,6 +104,67 @@ def commit() -> None:
 
         click.echo("\n[commit] Commit message prompt:")
         click.echo(commit_prompt)
+
+        # Inform the user we're generating the commit message
+        click.echo(
+            "🤖 Generating commit message, please hold..."
+        )
+
+        try:
+            response: Any = completion(
+                model="openai/gpt-4o-mini",
+                messages=[
+                    {"role": "user", "content": commit_prompt}
+                ],
+            )
+
+            generated_message = response.choices[
+                0
+            ].message.content
+
+            # Display generated message inside a clear formatted block
+            click.echo("\n----- Generated commit message -----")
+            click.echo(generated_message)
+            click.echo("----- End commit message -----\n")
+
+            # If not running interactively (tests/non-tty), skip confirmation
+            if not sys.stdin.isatty():
+                click.echo(
+                    "Non-interactive session detected; skipping commit prompt."
+                )
+                return
+
+            if click.confirm("Accept and commit this message?"):
+                try:
+                    subprocess.run(
+                        [
+                            "git",
+                            "commit",
+                            "-m",
+                            generated_message,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                    click.echo("✅ Commit created successfully.")
+                except subprocess.CalledProcessError as e:
+                    click.echo(
+                        f"Error committing changes: {e.stderr}",
+                        err=True,
+                    )
+            else:
+                click.echo("Aborted...")
+
+        except AuthenticationError:
+            click.echo(
+                "Authentication failed. Please check your API key.",
+                err=True,
+            )
+        except Exception as e:
+            click.echo(
+                f"Error generating commit message: {e}", err=True
+            )
 
     except subprocess.CalledProcessError as e:
         click.echo(f"Error running git command: {e}", err=True)
