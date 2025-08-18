@@ -98,56 +98,103 @@ def commit() -> None:
             diff=staged_diff
         )
 
+        # Prepare the LLM messages history; we'll append assistant/user turns on adjust
+        messages = [{"role": "user", "content": commit_prompt}]
+
         # Inform the user we're generating the commit message
         click.echo(
             "🤖 Generating commit message, please hold..."
         )
 
         try:
-            response: Any = completion(
-                model="openai/gpt-4o-mini",
-                messages=[
-                    {"role": "user", "content": commit_prompt}
-                ],
-            )
-
-            generated_message = response.choices[
-                0
-            ].message.content
-
-            # Display generated message inside a clear formatted block
-            click.echo("\n----- Generated commit message -----")
-            click.echo(generated_message)
-            click.echo("----- End commit message -----\n")
-
-            # If not running interactively (tests/non-tty), skip confirmation
-            if not sys.stdin.isatty():
-                click.echo(
-                    "Non-interactive session detected; skipping commit prompt."
+            while True:
+                # Call the LLM to generate the commit message
+                response: Any = completion(
+                    model="openai/gpt-4o-mini",
+                    messages=messages,
                 )
-                return
 
-            if click.confirm("Accept and commit this message?"):
-                try:
-                    subprocess.run(
-                        [
-                            "git",
-                            "commit",
-                            "-m",
-                            generated_message,
-                        ],
-                        capture_output=True,
-                        text=True,
-                        check=True,
-                    )
-                    click.echo("✅ Commit created successfully.")
-                except subprocess.CalledProcessError as e:
+                # Extract generated content (assumes non-streaming response)
+                generated_message = (
+                    response.choices[0].message.content or ""
+                ).strip()
+
+                # Display generated message inside a clear formatted block
+                click.echo(
+                    "\n----- Generated commit message -----"
+                )
+                click.echo(generated_message)
+                click.echo("----- End commit message -----\n")
+
+                # If not running interactively (tests/non-tty), skip confirmation
+                if not sys.stdin.isatty():
                     click.echo(
-                        f"Error committing changes: {e.stderr}",
-                        err=True,
+                        "Non-interactive session detected; skipping commit prompt."
                     )
-            else:
-                click.echo("Aborted...")
+                    return
+
+                # Offer choices to the user
+                choice = click.prompt(
+                    "Choose an action",
+                    type=click.Choice(
+                        ["Approve", "Adjust", "Abort"],
+                        case_sensitive=False,
+                    ),
+                    show_choices=True,
+                )
+
+                if choice.lower() == "approve":
+                    try:
+                        subprocess.run(
+                            [
+                                "git",
+                                "commit",
+                                "-m",
+                                generated_message,
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                        click.echo(
+                            "✅ Commit created successfully."
+                        )
+                    except subprocess.CalledProcessError as e:
+                        click.echo(
+                            f"Error committing changes: {e.stderr}",
+                            err=True,
+                        )
+                    return
+
+                if choice.lower() == "abort":
+                    click.echo("Aborted...")
+                    return
+
+                # If user chose Adjust, collect feedback and loop
+                if choice.lower() == "adjust":
+                    # Save the assistant's last message and ask the user for adjustment
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": generated_message,
+                        }
+                    )
+
+                    adjustment = click.prompt(
+                        "Describe the changes you'd like to make to the commit message",
+                        default="",
+                    )
+
+                    # Append the user's adjustment request to the conversation
+                    messages.append(
+                        {"role": "user", "content": adjustment}
+                    )
+
+                    # Inform about generation and continue loop to regenerate
+                    click.echo(
+                        "🤖 Regenerating commit message with your feedback..."
+                    )
+                    continue
 
         except AuthenticationError:
             click.echo(
