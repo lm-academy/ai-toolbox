@@ -133,15 +133,22 @@ def commit() -> None:
                     )
                     return
 
-                # Offer choices to the user
-                choice = click.prompt(
-                    "Choose an action",
-                    type=click.Choice(
-                        ["Approve", "Adjust", "Abort"],
-                        case_sensitive=False,
-                    ),
-                    show_choices=True,
+                # Offer numeric choices to the user (default: Approve)
+                click.echo(
+                    "Choose one of the following actions:\n"
                 )
+                click.echo("1) Approve (default)")
+                click.echo("2) Adjust")
+                click.echo("3) Abort")
+                selection = click.prompt(
+                    "Choose an action",
+                    type=click.IntRange(1, 3),
+                    default=1,
+                    show_default=True,
+                )
+                choice = {1: "approve", 2: "adjust", 3: "abort"}[
+                    selection
+                ]
 
                 if choice.lower() == "approve":
                     try:
@@ -182,7 +189,6 @@ def commit() -> None:
 
                     adjustment = click.prompt(
                         "Describe the changes you'd like to make to the commit message",
-                        default="",
                     )
 
                     # Append the user's adjustment request to the conversation
