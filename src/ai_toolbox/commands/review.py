@@ -2,6 +2,7 @@ import click
 import logging
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Literal
+from ai_toolbox import git_utils
 
 logger = logging.getLogger(__name__)
 
@@ -82,13 +83,24 @@ def review(ctx: click.Context, staged: bool) -> None:
     """
     mode = "staged" if staged else "uncommitted"
     logger.info(f"Running review command in mode: {mode}")
-    click.echo(f"Review command called (mode={mode})")
+
+    # Retrieve diff from git and run the lightweight pipeline
+    diff = git_utils.get_diff(staged=staged)
+    result = run_review_pipeline(diff=diff)
+
+    preview = result.get("preview", "")
+    click.echo(f"Review preview (first 200 chars):\n{preview}")
 
 
 def run_review_pipeline(diff: Optional[str] = None) -> dict:
-    """Placeholder function for the review pipeline.
+    """Lightweight review pipeline that returns a 200-char preview.
 
-    Returns a minimal dict to be expanded later.
+    For now this integrates git diff retrieval via the calling command
+    and returns a minimal dictionary with a `preview` field.
     """
     logger.debug("run_review_pipeline called")
-    return {"status": "not_implemented", "diff": diff}
+    if not diff:
+        return {"preview": ""}
+
+    preview = diff[:200]
+    return {"preview": preview}
