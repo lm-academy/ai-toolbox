@@ -52,25 +52,18 @@ class TestGetStagedDiff:
     def test_get_staged_diff_git_error(self, mocker):
         """Test handling of git command errors."""
         # Arrange
+        from git import InvalidGitRepositoryError
+
         mock_get = mocker.patch(
             "ai_toolbox.git_utils.get_staged_diff"
         )
-        mock_get.side_effect = subprocess.CalledProcessError(
-            returncode=128,
-            cmd=["git", "diff", "--staged"],
-            stderr="fatal: not a git repository",
+        mock_get.side_effect = InvalidGitRepositoryError(
+            "Not a git repo"
         )
 
-        # Act & Assert
-        with pytest.raises(
-            subprocess.CalledProcessError
-        ) as exc_info:
+        # Act & Assert - expect GitPython exception to surface
+        with pytest.raises(InvalidGitRepositoryError):
             get_staged_diff()
-
-        # The original stderr should be available on the exception
-        assert "not a git repository" in getattr(
-            exc_info.value, "stderr", ""
-        )
 
     def test_get_staged_diff_git_not_found(self, mocker):
         """Test handling when git is not installed."""
@@ -454,15 +447,13 @@ class TestCommitCommand:
     def test_commit_git_error(self, mocker):
         """Test commit command when git command fails."""
         # Arrange
+        from git import InvalidGitRepositoryError
+
         mock_get_staged_diff = mocker.patch(
             "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.side_effect = (
-            subprocess.CalledProcessError(
-                returncode=128,
-                cmd=["git", "diff", "--staged"],
-                stderr="fatal: not a git repository",
-            )
+            InvalidGitRepositoryError("Not a git repo")
         )
 
         # Act

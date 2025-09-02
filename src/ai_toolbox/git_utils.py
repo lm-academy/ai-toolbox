@@ -30,28 +30,19 @@ def get_staged_diff(path: Optional[str] = None) -> str:
         return diff_text
 
     # TODO: Don't mirror that, instead update the tests
-    #   for the new exceptions raised.
+    #   for the new exceptions raised. Leverage the exceptions
+    #   from GitPython where appropriate.
     except (InvalidGitRepositoryError, NoSuchPathError):
-        # Mirror the old subprocess error shape for compatibility with tests
-        raise subprocess.CalledProcessError(
-            returncode=128,
-            cmd=["git", "diff", "--staged"],
-            stderr="fatal: not a git repository",
-        )
-    except GitCommandError as e:
-        # Git command failed for some other reason
-        raise subprocess.CalledProcessError(
-            returncode=e.status if hasattr(e, "status") else 1,
-            cmd=(
-                e.command
-                if hasattr(e, "command")
-                else ["git", "diff", "--staged"]
-            ),
-            stderr=str(e),
-        )
-    except FileNotFoundError as e:
+        # Let the original GitPython exception surface. Tests should be
+        # updated to expect these exceptions rather than a subprocess
+        # CalledProcessError.
+        raise
+    except GitCommandError:
+        # Surface GitCommandError to callers for more specific handling.
+        raise
+    except FileNotFoundError:
         # Git binary not found
-        raise FileNotFoundError(str(e))
+        raise
 
 
 def run_commit(message: str, path: Optional[str] = None) -> None:
@@ -64,21 +55,12 @@ def run_commit(message: str, path: Optional[str] = None) -> None:
     try:
         repo = Repo(repo_path)
         repo.git.commit(m=message)
+    # Let GitPython exceptions surface to callers. Tests and callers
+    # should handle InvalidGitRepositoryError, NoSuchPathError and
+    # GitCommandError explicitly when needed.
     except (InvalidGitRepositoryError, NoSuchPathError):
-        raise subprocess.CalledProcessError(
-            returncode=128,
-            cmd=["git", "commit", "-m", message],
-            stderr="fatal: not a git repository",
-        )
-    except GitCommandError as e:
-        raise subprocess.CalledProcessError(
-            returncode=e.status if hasattr(e, "status") else 1,
-            cmd=(
-                e.command
-                if hasattr(e, "command")
-                else ["git", "commit", "-m", message]
-            ),
-            stderr=str(e),
-        )
-    except FileNotFoundError as e:
-        raise FileNotFoundError(str(e))
+        raise
+    except GitCommandError:
+        raise
+    except FileNotFoundError:
+        raise

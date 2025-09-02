@@ -11,6 +11,7 @@ import sys
 from typing import Any
 from litellm import completion
 from litellm.exceptions import AuthenticationError
+from git import InvalidGitRepositoryError, GitCommandError
 
 from .. import git_utils
 
@@ -59,7 +60,9 @@ def get_staged_diff() -> str:
     This function delegates to `ai_toolbox.git_utils.get_staged_diff()` and
     preserves the same exception types/interfaces as before.
     """
-    logger.debug("Starting to retrieve staged git diff via git_utils")
+    logger.debug(
+        "Starting to retrieve staged git diff via git_utils"
+    )
     try:
         diff_text = git_utils.get_staged_diff()
         diff_length = len(diff_text)
@@ -283,7 +286,12 @@ def commit(ctx: click.Context) -> None:
                 f"Error generating commit message: {e}", err=True
             )
 
-    except subprocess.CalledProcessError as e:
+    except (
+        subprocess.CalledProcessError,
+        InvalidGitRepositoryError,
+        GitCommandError,
+    ) as e:
+        # Handle both subprocess-based errors and GitPython exceptions
         logger.error(f"Git command error: {e}")
         click.echo(f"Error running git command: {e}", err=True)
     except FileNotFoundError as e:
