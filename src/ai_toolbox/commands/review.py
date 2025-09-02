@@ -162,12 +162,17 @@ def review(ctx: click.Context, staged: bool) -> None:
     logger.info(f"Running review command in mode: {mode}")
 
     # Retrieve diff from git and run the lightweight pipeline
+    click.echo("🔎 Retrieving git diff...")
     diff = git_utils.get_diff(staged=staged)
 
     # Get model from context (mirror commit.py behavior)
     model = ctx.obj.get("model", "openai/gpt-4o-mini")
     logger.debug(f"Using model for review command: {model}")
+    click.echo(f"🤖 Using model: {model}")
 
+    click.echo(
+        "🚦 Starting review pipeline (this may take a while)..."
+    )
     result = run_review_pipeline(diff=diff, model=model)
 
     preview = result.get("preview", "")
@@ -191,14 +196,33 @@ def run_review_pipeline(
 
     # Call analysis helpers if model provided (skipped during tests by default)
     try:
-        syntax_result = analyze_syntax(diff, model=model)
-        logic_result = analyze_logic(diff, model=model)
+        # Syntax analysis phase
+        click.echo("🔧 Starting syntax analysis...")
+        if not model:
+            click.echo(
+                "(skipped) No model provided for syntax analysis"
+            )
+            syntax_result = analyze_syntax(diff, model=model)
+        else:
+            syntax_result = analyze_syntax(diff, model=model)
+            click.echo("✅ Syntax analysis completed")
+
+        # Logic analysis phase
+        click.echo("🧠 Starting logic analysis...")
+        if not model:
+            click.echo(
+                "(skipped) No model provided for logic analysis"
+            )
+            logic_result = analyze_logic(diff, model=model)
+        else:
+            logic_result = analyze_logic(diff, model=model)
+            click.echo("✅ Logic analysis completed")
 
         # Print results for now as requested
-        print("--- Syntax Analysis Result ---")
-        print(syntax_result)
-        print("--- Logic Analysis Result ---")
-        print(logic_result)
+        click.echo("--- Syntax Analysis Result ---")
+        click.echo(syntax_result)
+        click.echo("--- Logic Analysis Result ---")
+        click.echo(logic_result)
     except Exception:
         logger.exception(
             "Error while running analysis functions"
