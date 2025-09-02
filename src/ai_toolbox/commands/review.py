@@ -1,10 +1,85 @@
 import click
 import logging
+import textwrap
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Literal
 from ai_toolbox import git_utils
 
 logger = logging.getLogger(__name__)
+
+
+# Prompt template for syntax-focused reviews.
+# The assistant must act as an automated linter: check only for syntax errors,
+# PEP 8 violations, and common code smells. It MUST ignore logical or algorithmic
+# issues. The assistant's entire response must be formatted using the exact
+# wrapper tags shown below and nothing else: [ANALYSIS]...[/ANALYSIS][SUGGESTIONS]...[/SUGGESTIONS]
+SYNTAX_REVIEW_TEMPLATE = textwrap.dedent(
+    """
+     You are an automated code linter. Your only responsibilities are:
+
+     1. Detect syntax errors (invalid Python syntax) in the provided code or diff.
+     2. Detect PEP 8 style violations (naming, line length, indentation, imports,
+         whitespace, etc.).
+     3. Identify common code smells that indicate readability or maintainability
+         problems (e.g., deeply nested blocks, very long functions, duplicated
+         code, magic literals, missing docstrings for public functions/classes).
+
+     Do NOT comment on program correctness, algorithmic complexity, or logical
+     behavior — those are out of scope for this prompt.
+
+     IMPORTANT: Format your entire reply using EXACTLY the following template and
+     nothing else. Do not add preambles, footers, or any text outside the tags.
+
+     [ANALYSIS]
+     <Provide a concise analysis of issues found. For each issue include the file
+     path (if available), line number (if available), a short description, and
+     an optional short code snippet or pointer. Keep this factual and brief.
+     [/ANALYSIS]
+     [SUGGESTIONS]
+     <Provide actionable suggestions for fixing the issues. Each suggestion must
+     map to one or more analysis items above. Be concrete (code examples or
+     quick fixes are preferred) and prioritize fixes that remove syntax errors
+     first, then style improvements, then code-smell remediation.>
+     [/SUGGESTIONS]
+     """
+)
+
+
+# Prompt template for logic-focused reviews.
+# The assistant must act as a senior software architect and follow a simple
+# chain-of-thought process: understand goal, analyze logic line-by-line,
+# then formulate suggestions. The response MUST be formatted exactly using the
+# wrapper tags: [ANALYSIS]...[/ANALYSIS][SUGGESTIONS]...[/SUGGESTIONS]
+LOGIC_REVIEW_TEMPLATE = textwrap.dedent(
+    """
+     You are a senior software architect. Review the provided code or diff with
+     a focus on logical correctness, potential bugs, missed edge cases, and
+     adherence to software design and Python best practices.
+
+     Follow this Chain-of-Thought process in your analysis (you may keep it
+     concise):
+     1) First, understand the overall goal of the code.
+     2) Second, analyze its logic line-by-line and identify any potential
+         correctness problems, suspicious assumptions, or edge cases.
+     3) Third, also consider the overall code structure from a holistic
+         perspective. In other words, not line-by-line, but from a more
+         architectural viewpoint.
+     4) Fourth, formulate concrete suggestions to improve correctness,
+         robustness, and design.
+
+     IMPORTANT: Format your entire reply using EXACTLY the following template and
+     nothing else. Do not include additional commentary outside the tags.
+
+     [ANALYSIS]
+     <Present your analysis following the three-step structure. For each finding
+     include location (file/line) when possible and a short reasoning snippet.>
+     [/ANALYSIS]
+     [SUGGESTIONS]
+     <Provide prioritized, actionable suggestions and example fixes where
+     appropriate. Map each suggestion to analysis items above.>
+     [/SUGGESTIONS]
+     """
+)
 
 
 @dataclass
