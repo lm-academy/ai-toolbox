@@ -8,6 +8,7 @@ from litellm import completion
 from litellm.exceptions import AuthenticationError
 
 from .commands import commit
+from .commands import review
 
 
 load_dotenv()  # Load environment variables from .env file
@@ -128,6 +129,7 @@ def hello(ctx: click.Context) -> None:
 
 cli.add_command(hello)
 cli.add_command(commit)
+cli.add_command(review)
 
 if __name__ == "__main__":
     cli()
