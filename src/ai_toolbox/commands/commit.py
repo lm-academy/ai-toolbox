@@ -12,6 +12,8 @@ from typing import Any
 from litellm import completion
 from litellm.exceptions import AuthenticationError
 
+from .. import git_utils
+
 # Set up module logger
 logger = logging.getLogger(__name__)
 
@@ -52,27 +54,15 @@ Generate an appropriate commit message based on the changes shown in the diff ab
 
 
 def get_staged_diff() -> str:
-    """Get the staged git diff.
+    """Get the staged git diff using GitPython adapter.
 
-    Returns:
-        str: The output of 'git diff --staged' command.
-
-    Raises:
-        subprocess.CalledProcessError: If the git command fails.
-        FileNotFoundError: If git is not found in the system PATH.
+    This function delegates to `ai_toolbox.git_utils.get_staged_diff()` and
+    preserves the same exception types/interfaces as before.
     """
-    logger.debug("Starting to retrieve staged git diff")
-
+    logger.debug("Starting to retrieve staged git diff via git_utils")
     try:
-        logger.debug("Executing git diff --staged command")
-        result = subprocess.run(
-            ["git", "diff", "--staged"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        diff_length = len(result.stdout)
+        diff_text = git_utils.get_staged_diff()
+        diff_length = len(diff_text)
         logger.debug(
             f"Successfully retrieved git diff, length: {diff_length} characters"
         )
@@ -84,22 +74,15 @@ def get_staged_diff() -> str:
                 f"Retrieved staged diff with {diff_length} characters"
             )
 
-        return result.stdout
-
+        return diff_text
+    # TODO: Probably we can get rid of this exception handling
     except subprocess.CalledProcessError as e:
-        logger.error(
-            f"Git diff command failed with return code {e.returncode}: {e.stderr}"
-        )
-        raise subprocess.CalledProcessError(
-            e.returncode,
-            e.cmd,
-            f"Git command failed: {e.stderr}",
-        )
+        logger.error(f"Git diff command failed: {e}")
+        # Re-raise to preserve previous behavior
+        raise
     except FileNotFoundError as e:
         logger.error(f"Git command not found: {e}")
-        raise FileNotFoundError(
-            "Git command not found. Please ensure git is installed and in your PATH."
-        )
+        raise
 
 
 @click.command()
@@ -224,19 +207,9 @@ def commit(ctx: click.Context) -> None:
                     )
                     try:
                         logger.debug(
-                            f"Executing git commit with message: {repr(generated_message)}"
+                            f"Executing git commit via git_utils with message: {repr(generated_message)}"
                         )
-                        subprocess.run(
-                            [
-                                "git",
-                                "commit",
-                                "-m",
-                                generated_message,
-                            ],
-                            capture_output=True,
-                            text=True,
-                            check=True,
-                        )
+                        git_utils.run_commit(generated_message)
                         logger.info(
                             "Git commit executed successfully"
                         )

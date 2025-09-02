@@ -22,54 +22,40 @@ class TestGetStagedDiff:
         expected_diff = (
             "diff --git a/file.txt b/file.txt\n+new line\n"
         )
-        mock_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_get = mocker.patch(
+            "ai_toolbox.git_utils.get_staged_diff"
         )
-        mock_result = mocker.Mock()
-        mock_result.stdout = expected_diff
-        mock_run.return_value = mock_result
+        mock_get.return_value = expected_diff
 
         # Act
         result = get_staged_diff()
 
         # Assert
         assert result == expected_diff
-        mock_run.assert_called_once_with(
-            ["git", "diff", "--staged"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_get.assert_called_once()
 
     def test_get_staged_diff_empty(self, mocker):
         """Test retrieval when no staged changes exist."""
         # Arrange
-        mock_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_get = mocker.patch(
+            "ai_toolbox.git_utils.get_staged_diff"
         )
-        mock_result = mocker.Mock()
-        mock_result.stdout = ""
-        mock_run.return_value = mock_result
+        mock_get.return_value = ""
 
         # Act
         result = get_staged_diff()
 
         # Assert
         assert result == ""
-        mock_run.assert_called_once_with(
-            ["git", "diff", "--staged"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_get.assert_called_once()
 
     def test_get_staged_diff_git_error(self, mocker):
         """Test handling of git command errors."""
         # Arrange
-        mock_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_get = mocker.patch(
+            "ai_toolbox.git_utils.get_staged_diff"
         )
-        mock_run.side_effect = subprocess.CalledProcessError(
+        mock_get.side_effect = subprocess.CalledProcessError(
             returncode=128,
             cmd=["git", "diff", "--staged"],
             stderr="fatal: not a git repository",
@@ -81,16 +67,18 @@ class TestGetStagedDiff:
         ) as exc_info:
             get_staged_diff()
 
-        # The error message is in the output attribute, not the string representation
-        assert "Git command failed:" in exc_info.value.output
+        # The original stderr should be available on the exception
+        assert "not a git repository" in getattr(
+            exc_info.value, "stderr", ""
+        )
 
     def test_get_staged_diff_git_not_found(self, mocker):
         """Test handling when git is not installed."""
         # Arrange
-        mock_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_get = mocker.patch(
+            "ai_toolbox.git_utils.get_staged_diff"
         )
-        mock_run.side_effect = FileNotFoundError(
+        mock_get.side_effect = FileNotFoundError(
             "git command not found"
         )
 
@@ -98,7 +86,7 @@ class TestGetStagedDiff:
         with pytest.raises(FileNotFoundError) as exc_info:
             get_staged_diff()
 
-        assert "Git command not found" in str(exc_info.value)
+        assert "git command not found" in str(exc_info.value)
 
 
 class TestCommitCommand:
@@ -112,7 +100,7 @@ class TestCommitCommand:
         """Test commit command with no staged changes."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = ""
 
@@ -131,7 +119,7 @@ class TestCommitCommand:
         """Test commit command with whitespace-only diff."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = "   \n\t  \n"
 
@@ -156,7 +144,7 @@ class TestCommitCommand:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -172,8 +160,8 @@ class TestCommitCommand:
         mock_completion.return_value = mock_response
 
         # Mock subprocess.run for git commit
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act - simulate user choosing "1" (approve)
@@ -196,12 +184,7 @@ class TestCommitCommand:
         )
 
         # Verify git commit was called
-        mock_subprocess_run.assert_called_once_with(
-            ["git", "commit", "-m", generated_message],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_run.assert_called_once_with(generated_message)
 
     def test_commit_with_staged_changes_abort_workflow(
         self, mocker
@@ -214,7 +197,7 @@ class TestCommitCommand:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -230,8 +213,8 @@ class TestCommitCommand:
         mock_completion.return_value = mock_response
 
         # Mock subprocess.run for git commit (should not be called)
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act - simulate user choosing "3" (abort)
@@ -246,7 +229,7 @@ class TestCommitCommand:
         assert generated_message in result.output
 
         # Verify git commit was NOT called
-        mock_subprocess_run.assert_not_called()
+        mock_run.assert_not_called()
 
     def test_commit_with_staged_changes_adjust_workflow(
         self, mocker
@@ -262,7 +245,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -290,8 +273,8 @@ class TestCommitCommand:
         ]
 
         # Mock subprocess.run for git commit
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act - simulate user choosing "2" (adjust), providing feedback, then "1" (approve)
@@ -323,12 +306,7 @@ class TestCommitCommand:
         )
 
         # Verify git commit was called with the adjusted message
-        mock_subprocess_run.assert_called_once_with(
-            ["git", "commit", "-m", adjusted_message],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_run.assert_called_once_with(adjusted_message)
 
     def test_commit_git_commit_failure(self, mocker):
         """Test commit command when git commit fails."""
@@ -339,7 +317,7 @@ class TestCommitCommand:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -355,10 +333,10 @@ class TestCommitCommand:
         mock_completion.return_value = mock_response
 
         # Mock subprocess.run for git commit to fail
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
-        mock_subprocess_run.side_effect = subprocess.CalledProcessError(
+        mock_run.side_effect = subprocess.CalledProcessError(
             returncode=1,
             cmd=["git", "commit", "-m", generated_message],
             stderr="fatal: unable to create temporary file: Permission denied",
@@ -383,7 +361,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -414,7 +392,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -443,7 +421,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -457,8 +435,8 @@ class TestCommitCommand:
         mock_completion.return_value = mock_response
 
         # Mock subprocess.run for git commit
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act - simulate user choosing "1" (approve)
@@ -471,18 +449,13 @@ class TestCommitCommand:
         # Assert
         assert result.exit_code == 0
         # Verify git commit was called with empty message
-        mock_subprocess_run.assert_called_once_with(
-            ["git", "commit", "-m", ""],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_run.assert_called_once_with("")
 
     def test_commit_git_error(self, mocker):
         """Test commit command when git command fails."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.side_effect = (
             subprocess.CalledProcessError(
@@ -508,7 +481,7 @@ class TestCommitCommand:
         """Test commit command when git is not installed."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.side_effect = FileNotFoundError(
             "Git command not found. Please ensure git is installed and in your PATH."
@@ -631,7 +604,7 @@ class TestCommitCommandEdgeCases:
         ]
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -648,9 +621,9 @@ class TestCommitCommandEdgeCases:
 
         mock_completion.side_effect = mock_responses
 
-        # Mock subprocess.run for git commit
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        # Mock git_utils.run_commit for git commit
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act - simulate user choosing "2" (adjust) twice, then "1" (approve)
@@ -670,12 +643,7 @@ class TestCommitCommandEdgeCases:
         assert mock_completion.call_count == 3
 
         # Verify git commit was called with the final message
-        mock_subprocess_run.assert_called_once_with(
-            ["git", "commit", "-m", messages[2]],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_run.assert_called_once_with(messages[2])
 
     def test_commit_invalid_user_choice_then_valid(self, mocker):
         """Test commit command with invalid user choice followed by valid choice."""
@@ -686,7 +654,7 @@ class TestCommitCommandEdgeCases:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -701,9 +669,9 @@ class TestCommitCommandEdgeCases:
         )
         mock_completion.return_value = mock_response
 
-        # Mock subprocess.run for git commit
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        # Mock git_utils.run_commit for git commit
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act - simulate user entering invalid choice (4), then valid choice (1)
@@ -717,7 +685,7 @@ class TestCommitCommandEdgeCases:
         # Assert
         assert result.exit_code == 0
         assert "✅ Commit created successfully." in result.output
-        mock_subprocess_run.assert_called_once()
+        mock_run.assert_called_once()
 
     def test_commit_with_unicode_characters(self, mocker):
         """Test commit command with unicode characters in diff."""
@@ -728,7 +696,7 @@ class TestCommitCommandEdgeCases:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.commands.commit.get_staged_diff"
+            "ai_toolbox.git_utils.get_staged_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -743,9 +711,9 @@ class TestCommitCommandEdgeCases:
         )
         mock_completion.return_value = mock_response
 
-        # Mock subprocess.run for git commit
-        mock_subprocess_run = mocker.patch(
-            "ai_toolbox.commands.commit.subprocess.run"
+        # Mock git_utils.run_commit for git commit
+        mock_run = mocker.patch(
+            "ai_toolbox.git_utils.run_commit"
         )
 
         # Act
@@ -760,9 +728,4 @@ class TestCommitCommandEdgeCases:
         assert "✅ Commit created successfully." in result.output
 
         # Verify git commit was called with the unicode message
-        mock_subprocess_run.assert_called_once_with(
-            ["git", "commit", "-m", generated_message],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        mock_run.assert_called_once_with(generated_message)
