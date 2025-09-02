@@ -23,7 +23,7 @@ class TestGetStagedDiff:
             "diff --git a/file.txt b/file.txt\n+new line\n"
         )
         mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get.return_value = expected_diff
 
@@ -38,7 +38,7 @@ class TestGetStagedDiff:
         """Test retrieval when no staged changes exist."""
         # Arrange
         mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get.return_value = ""
 
@@ -55,7 +55,7 @@ class TestGetStagedDiff:
         from git import InvalidGitRepositoryError
 
         mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get.side_effect = InvalidGitRepositoryError(
             "Not a git repo"
@@ -69,7 +69,7 @@ class TestGetStagedDiff:
         """Test handling when git is not installed."""
         # Arrange
         mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get.side_effect = FileNotFoundError(
             "git command not found"
@@ -93,7 +93,7 @@ class TestCommitCommand:
         """Test commit command with no staged changes."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = ""
 
@@ -112,7 +112,7 @@ class TestCommitCommand:
         """Test commit command with whitespace-only diff."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = "   \n\t  \n"
 
@@ -137,7 +137,7 @@ class TestCommitCommand:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -190,7 +190,7 @@ class TestCommitCommand:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -238,7 +238,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -310,7 +310,7 @@ class TestCommitCommand:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -354,7 +354,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -385,7 +385,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -414,7 +414,7 @@ class TestCommitCommand:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -450,7 +450,7 @@ class TestCommitCommand:
         from git import InvalidGitRepositoryError
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.side_effect = (
             InvalidGitRepositoryError("Not a git repo")
@@ -472,7 +472,7 @@ class TestCommitCommand:
         """Test commit command when git is not installed."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.side_effect = FileNotFoundError(
             "Git command not found. Please ensure git is installed and in your PATH."
@@ -595,7 +595,7 @@ class TestCommitCommandEdgeCases:
         ]
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -645,7 +645,7 @@ class TestCommitCommandEdgeCases:
         generated_message = "feat: add new line to file.txt"
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 
@@ -687,7 +687,7 @@ class TestCommitCommandEdgeCases:
         )
 
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = staged_diff
 

@@ -64,7 +64,7 @@ def get_staged_diff() -> str:
         "Starting to retrieve staged git diff via git_utils"
     )
     try:
-        diff_text = git_utils.get_staged_diff()
+        diff_text = git_utils.get_diff(staged=True)
         diff_length = len(diff_text)
         logger.debug(
             f"Successfully retrieved git diff, length: {diff_length} characters"

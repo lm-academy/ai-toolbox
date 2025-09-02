@@ -171,7 +171,7 @@ class TestCommandLogging:
         """Test that commit command logs appropriately when no changes are staged."""
         # Arrange
         mock_get_staged_diff = mocker.patch(
-            "ai_toolbox.git_utils.get_staged_diff"
+            "ai_toolbox.git_utils.get_diff"
         )
         mock_get_staged_diff.return_value = ""
 
