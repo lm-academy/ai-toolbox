@@ -4,6 +4,8 @@ import textwrap
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Literal
 from ai_toolbox import git_utils
+from litellm import completion
+from litellm.exceptions import AuthenticationError
 
 logger = logging.getLogger(__name__)
 
@@ -161,13 +163,20 @@ def review(ctx: click.Context, staged: bool) -> None:
 
     # Retrieve diff from git and run the lightweight pipeline
     diff = git_utils.get_diff(staged=staged)
-    result = run_review_pipeline(diff=diff)
+
+    # Get model from context (mirror commit.py behavior)
+    model = ctx.obj.get("model", "openai/gpt-4o-mini")
+    logger.debug(f"Using model for review command: {model}")
+
+    result = run_review_pipeline(diff=diff, model=model)
 
     preview = result.get("preview", "")
     click.echo(f"Review preview (first 200 chars):\n{preview}")
 
 
-def run_review_pipeline(diff: Optional[str] = None) -> dict:
+def run_review_pipeline(
+    diff: Optional[str] = None, model: Optional[str] = None
+) -> dict:
     """Lightweight review pipeline that returns a 200-char preview.
 
     For now this integrates git diff retrieval via the calling command
@@ -177,5 +186,103 @@ def run_review_pipeline(diff: Optional[str] = None) -> dict:
     if not diff:
         return {"preview": ""}
 
+    # For backward compatibility keep preview behavior
     preview = diff[:200]
+
+    # Call analysis helpers if model provided (skipped during tests by default)
+    try:
+        syntax_result = analyze_syntax(diff, model=model)
+        logic_result = analyze_logic(diff, model=model)
+
+        # Print results for now as requested
+        print("--- Syntax Analysis Result ---")
+        print(syntax_result)
+        print("--- Logic Analysis Result ---")
+        print(logic_result)
+    except Exception:
+        logger.exception(
+            "Error while running analysis functions"
+        )
+
     return {"preview": preview}
+
+
+def analyze_syntax(
+    diff: str, model: Optional[str] = None
+) -> str:
+    """Analyze the provided diff for syntax/PEP8 issues using LLM.
+
+    If `model` is None the call is skipped and a placeholder string is returned.
+
+    Returns the assistant's text content (string).
+    """
+    logger.debug("analyze_syntax called")
+    prompt = SYNTAX_REVIEW_TEMPLATE
+
+    # Prepare messages: put the diff in the user message so the LLM can analyze it
+    messages = [
+        {
+            "role": "user",
+            "content": f"<diff>\n{diff}\n</diff>\n\n{prompt}",
+        },
+    ]
+
+    if not model:
+        logger.debug(
+            "No model provided for analyze_syntax - skipping LLM call"
+        )
+        return "<skipped: no model provided>"
+
+    try:
+        resp: Any = completion(model=model, messages=messages)
+        content = resp.choices[0].message.content or ""
+        return content.strip()
+    except AuthenticationError as e:
+        logger.error(
+            f"LLM authentication failed in analyze_syntax: {e}"
+        )
+        return f"<error: authentication failed: {e}>"
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling LLM in analyze_syntax"
+        )
+        return f"<error: {e}>"
+
+
+def analyze_logic(diff: str, model: Optional[str] = None) -> str:
+    """Analyze the provided diff for logical issues using LLM.
+
+    If `model` is None the call is skipped and a placeholder string is returned.
+
+    Returns the assistant's text content (string).
+    """
+    logger.debug("analyze_logic called")
+    prompt = LOGIC_REVIEW_TEMPLATE
+
+    messages = [
+        {
+            "role": "user",
+            "content": f"<diff>\n{diff}\n</diff>\n\n{prompt}",
+        },
+    ]
+
+    if not model:
+        logger.debug(
+            "No model provided for analyze_logic - skipping LLM call"
+        )
+        return "<skipped: no model provided>"
+
+    try:
+        resp: Any = completion(model=model, messages=messages)
+        content = resp.choices[0].message.content or ""
+        return content.strip()
+    except AuthenticationError as e:
+        logger.error(
+            f"LLM authentication failed in analyze_logic: {e}"
+        )
+        return f"<error: authentication failed: {e}>"
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling LLM in analyze_logic"
+        )
+        return f"<error: {e}>"
