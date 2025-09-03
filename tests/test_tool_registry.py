@@ -14,7 +14,7 @@ def test_register_and_get_tool_programmatic():
     called = {}
     r = ToolRegistry()
 
-    @r.register_tool
+    @r.register_tool()
     def dummy(path: str) -> str:
         called["path"] = path
         return "ok"

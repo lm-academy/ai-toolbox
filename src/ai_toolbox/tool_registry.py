@@ -16,15 +16,16 @@ import inspect
 import typing as t
 
 
+P = t.ParamSpec("P")
+R = t.TypeVar("R")
+
+
 @dataclass
 class ToolDescriptor:
     name: str
     func: t.Callable
     description: str
     params_schema: dict
-
-
-_REGISTRY: dict[str, ToolDescriptor] = {}
 
 
 def _pytype_to_json_type(py: type) -> str:
@@ -84,15 +85,15 @@ class ToolRegistry:
 
     def register_tool(
         self,
-        _func: t.Callable | None = None,
-        *,
         name: str | None = None,
         description: str | None = None,
         params_schema: dict | None = None,
     ):
         """Decorator / programmatic registration bound to this registry instance."""
 
-        def _register(func: t.Callable) -> t.Callable:
+        def decorator(
+            func: t.Callable[P, R],
+        ) -> t.Callable[P, R]:
             tool_name = name or func.__name__
             desc = description or (func.__doc__ or "").strip()
             schema = params_schema or _build_params_schema(func)
@@ -104,9 +105,7 @@ class ToolRegistry:
             )
             return func
 
-        if _func is None:
-            return _register
-        return _register(_func)
+        return decorator
 
     def list_tools(self) -> list[str]:
         return list(self._registry.keys())
@@ -140,42 +139,3 @@ class ToolRegistry:
         if not td:
             raise KeyError(f"tool not found: {name}")
         return td.func(**kwargs)
-
-
-# default registry for backwards compatibility
-default_registry = ToolRegistry()
-
-
-def register_tool(
-    _func: t.Callable | None = None,
-    *,
-    name: str | None = None,
-    description: str | None = None,
-    params_schema: dict | None = None,
-):
-    return default_registry.register_tool(
-        _func,
-        name=name,
-        description=description,
-        params_schema=params_schema,
-    )
-
-
-def list_tools() -> list[str]:
-    return default_registry.list_tools()
-
-
-def get_tool(name: str) -> ToolDescriptor | None:
-    return default_registry.get_tool(name)
-
-
-def generate_tool_schema(name: str) -> dict | None:
-    return default_registry.generate_tool_schema(name)
-
-
-def generate_all_tool_schemas() -> list[dict]:
-    return default_registry.generate_all_tool_schemas()
-
-
-def call_tool(name: str, /, **kwargs):
-    return default_registry.call_tool(name, **kwargs)

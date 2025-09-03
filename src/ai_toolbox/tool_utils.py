@@ -5,6 +5,10 @@ calling code or AI can decide how to interpret the output.
 """
 
 import subprocess
+from .tool_registry import ToolRegistry
+
+
+TOOL_REGISTRY = ToolRegistry()
 
 
 def _validate_path(path: str) -> None:
@@ -12,6 +16,7 @@ def _validate_path(path: str) -> None:
         raise ValueError("path must be a non-empty string")
 
 
+@TOOL_REGISTRY.register_tool()
 def run_pylint(path: str) -> str:
     """Run pylint on the provided path and return raw output as a string.
 
@@ -36,6 +41,7 @@ def run_pylint(path: str) -> str:
         return f"<error: {e}>"
 
 
+@TOOL_REGISTRY.register_tool()
 def run_security_scan(path: str) -> str:
     """Run bandit (security scanner) recursively on the provided path.
 
