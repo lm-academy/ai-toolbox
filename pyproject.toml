@@ -28,5 +28,7 @@ ai-toolbox = "ai_toolbox.main:cli"
 [project.optional-dependencies]
 dev = [
     "pytest==8.4.1",
-    "pytest-mock==3.14.1"
+    "pytest-mock==3.14.1",
+    "bandit==1.8.6",
+    "pylint==3.3.8"
 ]
