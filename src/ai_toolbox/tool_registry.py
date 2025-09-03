@@ -72,6 +72,80 @@ def _build_params_schema(func: t.Callable) -> dict:
     return schema
 
 
+class ToolRegistry:
+    """An instance-based registry for tools.
+
+    Use an instance when you want isolation (e.g. tests). A module-level
+    `default_registry` is provided for convenience/backward-compat.
+    """
+
+    def __init__(self) -> None:
+        self._registry: dict[str, ToolDescriptor] = {}
+
+    def register_tool(
+        self,
+        _func: t.Callable | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        params_schema: dict | None = None,
+    ):
+        """Decorator / programmatic registration bound to this registry instance."""
+
+        def _register(func: t.Callable) -> t.Callable:
+            tool_name = name or func.__name__
+            desc = description or (func.__doc__ or "").strip()
+            schema = params_schema or _build_params_schema(func)
+            self._registry[tool_name] = ToolDescriptor(
+                name=tool_name,
+                func=func,
+                description=desc,
+                params_schema=schema,
+            )
+            return func
+
+        if _func is None:
+            return _register
+        return _register(_func)
+
+    def list_tools(self) -> list[str]:
+        return list(self._registry.keys())
+
+    def get_tool(self, name: str) -> ToolDescriptor | None:
+        return self._registry.get(name)
+
+    def generate_tool_schema(self, name: str) -> dict | None:
+        td = self.get_tool(name)
+        if not td:
+            return None
+        return {
+            "type": "function",
+            "function": {
+                "name": td.name,
+                "description": td.description,
+                "parameters": td.params_schema,
+            },
+        }
+
+    def generate_all_tool_schemas(self) -> list[dict]:
+        schemas: list[dict] = []
+        for name in self.list_tools():
+            s = self.generate_tool_schema(name)
+            if s is not None:
+                schemas.append(s)
+        return schemas
+
+    def call_tool(self, name: str, /, **kwargs):
+        td = self.get_tool(name)
+        if not td:
+            raise KeyError(f"tool not found: {name}")
+        return td.func(**kwargs)
+
+
+# default registry for backwards compatibility
+default_registry = ToolRegistry()
+
+
 def register_tool(
     _func: t.Callable | None = None,
     *,
@@ -79,78 +153,29 @@ def register_tool(
     description: str | None = None,
     params_schema: dict | None = None,
 ):
-    """Decorator / programmatic registration for tools.
-
-    Can be used as:
-      @register_tool
-      def foo(...):
-          ...
-
-    Or with metadata:
-      @register_tool(name="foo", description="...", params_schema={...})
-      def foo(...):
-          ...
-    """
-
-    def _register(func: t.Callable) -> t.Callable:
-        tool_name = name or func.__name__
-        desc = description or (func.__doc__ or "").strip()
-        schema = params_schema or _build_params_schema(func)
-        _REGISTRY[tool_name] = ToolDescriptor(
-            name=tool_name,
-            func=func,
-            description=desc,
-            params_schema=schema,
-        )
-        return func
-
-    if _func is None:
-        return _register
-    return _register(_func)
+    return default_registry.register_tool(
+        _func,
+        name=name,
+        description=description,
+        params_schema=params_schema,
+    )
 
 
 def list_tools() -> list[str]:
-    return list(_REGISTRY.keys())
+    return default_registry.list_tools()
 
 
 def get_tool(name: str) -> ToolDescriptor | None:
-    return _REGISTRY.get(name)
+    return default_registry.get_tool(name)
 
 
 def generate_tool_schema(name: str) -> dict | None:
-    """Return a JSON-schema-like dict describing the tool's parameters.
-
-    The returned dict contains: title, description, and parameters (object schema).
-    """
-    td = get_tool(name)
-    if not td:
-        return None
-    return {
-        "type": "function",
-        "function": {
-            "name": td.name,
-            "description": td.description,
-            "parameters": td.params_schema,
-        },
-    }
+    return default_registry.generate_tool_schema(name)
 
 
 def generate_all_tool_schemas() -> list[dict]:
-    """Return a list of tool schemas for all registered tools.
-
-    Each item uses the same structure as `generate_tool_schema`.
-    Useful to present the full tool list to an LLM.
-    """
-    schemas: list[dict] = []
-    for name in list_tools():
-        s = generate_tool_schema(name)
-        if s is not None:
-            schemas.append(s)
-    return schemas
+    return default_registry.generate_all_tool_schemas()
 
 
 def call_tool(name: str, /, **kwargs):
-    td = get_tool(name)
-    if not td:
-        raise KeyError(f"tool not found: {name}")
-    return td.func(**kwargs)
+    return default_registry.call_tool(name, **kwargs)
