@@ -22,9 +22,7 @@ class TestGetStagedDiff:
         expected_diff = (
             "diff --git a/file.txt b/file.txt\n+new line\n"
         )
-        mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_diff"
-        )
+        mock_get = mocker.patch("ai_toolbox.git_utils.get_diff")
         mock_get.return_value = expected_diff
 
         # Act
@@ -37,9 +35,7 @@ class TestGetStagedDiff:
     def test_get_staged_diff_empty(self, mocker):
         """Test retrieval when no staged changes exist."""
         # Arrange
-        mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_diff"
-        )
+        mock_get = mocker.patch("ai_toolbox.git_utils.get_diff")
         mock_get.return_value = ""
 
         # Act
@@ -54,9 +50,7 @@ class TestGetStagedDiff:
         # Arrange
         from git import InvalidGitRepositoryError
 
-        mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_diff"
-        )
+        mock_get = mocker.patch("ai_toolbox.git_utils.get_diff")
         mock_get.side_effect = InvalidGitRepositoryError(
             "Not a git repo"
         )
@@ -68,9 +62,7 @@ class TestGetStagedDiff:
     def test_get_staged_diff_git_not_found(self, mocker):
         """Test handling when git is not installed."""
         # Arrange
-        mock_get = mocker.patch(
-            "ai_toolbox.git_utils.get_diff"
-        )
+        mock_get = mocker.patch("ai_toolbox.git_utils.get_diff")
         mock_get.side_effect = FileNotFoundError(
             "git command not found"
         )

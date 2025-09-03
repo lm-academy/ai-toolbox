@@ -2,13 +2,7 @@ import click
 from click.testing import CliRunner
 
 from ai_toolbox.commands import review
-import importlib
-
-# Import module object explicitly to avoid package attribute shadowing
-review_mod = importlib.import_module(
-    "ai_toolbox.commands.review"
-)
-from ai_toolbox import git_utils
+from ai_toolbox.commands.review import run_review_pipeline
 
 
 def test_review_command_exists():
@@ -17,7 +11,7 @@ def test_review_command_exists():
 
 def test_run_review_pipeline_truncates_diff():
     long_diff = "a" * 500
-    result = review_mod.run_review_pipeline(diff=long_diff)
+    result = run_review_pipeline(diff=long_diff)
     assert "preview" in result
     assert len(result["preview"]) == 200
 

@@ -1,11 +1,8 @@
-import importlib
-
-
-review = importlib.import_module("ai_toolbox.commands.review")
+from ai_toolbox.commands.review import LOGIC_REVIEW_TEMPLATE
 
 
 def test_logic_template_exists_and_structure():
-    tpl = review.LOGIC_REVIEW_TEMPLATE
+    tpl = LOGIC_REVIEW_TEMPLATE
     assert isinstance(tpl, str)
     # Must contain the exact wrapper sequence in order
     assert "[ANALYSIS]" in tpl

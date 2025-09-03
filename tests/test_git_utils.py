@@ -1,5 +1,3 @@
-import pytest
-
 from ai_toolbox import git_utils
 
 

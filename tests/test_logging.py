@@ -1,10 +1,8 @@
 """Tests for logging functionality in the AI toolbox."""
 
 import logging
-import sys
 from io import StringIO
 
-import pytest
 from click.testing import CliRunner
 
 from ai_toolbox.main import cli, setup_logging

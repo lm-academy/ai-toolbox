@@ -1,8 +1,4 @@
 import importlib
-from types import SimpleNamespace
-
-import pytest
-
 
 review = importlib.import_module("ai_toolbox.commands.review")
 
