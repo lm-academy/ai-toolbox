@@ -160,6 +160,208 @@ SECURITY_REVIEW_TEMPLATE = textwrap.dedent(
 )
 
 
+# Synthesis template: lead software architect persona to combine multiple reviews
+SYNTHESIS_TEMPLATE = textwrap.dedent(
+    """
+    You are a lead software architect tasked with synthesizing multiple specialist
+    reviews into a single, comprehensive, and de-duplicated report. You will be
+    provided with reviews from PERFORMANCE, MAINTAINABILITY, and SECURITY
+    specialists. Your job is to merge them, remove duplicates, prioritize
+    issues by severity/impact, and produce a clear action plan.
+
+    IMPORTANT: Format your entire reply using EXACTLY the following template and
+    nothing else. The output should be in Markdown and follow the tags.
+
+    [ANALYSIS]
+    <Summarize combined findings, grouped by area (performance, maintainability, security) and deduplicated.>
+    [/ANALYSIS]
+    [SUGGESTIONS]
+    <Provide a prioritized, actionable plan (short-term quick fixes and longer-term refactors), and list who should own each item.>
+    [/SUGGESTIONS]
+    """
+)
+
+
+def run_persona_review(
+    diff: str,
+    persona_template: str,
+    persona_name: str,
+    model: Optional[str] = None,
+) -> str:
+    """Run a single persona review using the provided template.
+
+    Returns the raw assistant content (string). If model is None, returns a skip placeholder.
+    """
+    logger.debug(
+        f"run_persona_review called for persona {persona_name}"
+    )
+    messages = [
+        {
+            "role": "system",
+            "content": persona_template,
+        },
+        {
+            "role": "user",
+            "content": f"<diff>\n{diff}\n</diff>",
+        },
+    ]
+
+    if not model:
+        logger.debug(
+            "No model provided for persona review - skipping LLM call"
+        )
+        return "<skipped: no model provided>"
+
+    try:
+        resp: Any = completion(model=model, messages=messages)
+        content = resp.choices[0].message.content or ""
+        return content.strip()
+    except AuthenticationError as e:
+        logger.error(
+            f"LLM authentication failed in run_persona_review: {e}"
+        )
+        return f"<error: authentication failed: {e}>"
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling LLM in run_persona_review"
+        )
+        return f"<error: {e}>"
+
+
+def run_reviews_with_personas(
+    diff: str,
+    personas_dict: Dict[str, str],
+    model: Optional[str] = None,
+) -> Dict[str, str]:
+    """Run the performance, maintainability and security persona reviews.
+
+    Returns a dict mapping persona name to the raw review string.
+    """
+    reviews: Dict[str, str] = {}
+    for persona_name, persona_template in personas_dict.items():
+        click.echo(
+            f"👥 Running persona {persona_name} review..."
+        )
+        reviews[persona_name] = run_persona_review(
+            diff,
+            persona_template,
+            persona_name=persona_name,
+            model=model,
+        )
+    return reviews
+
+
+def synthesize_perspectives(
+    reviews: Dict[str, str], model: Optional[str] = None
+) -> str:
+    """Synthesize multiple persona reviews into a single report using the lead architect persona.
+
+    If model is None, returns a skip placeholder.
+    """
+    logger.debug("synthesize_perspectives called")
+    # Build a single prompt that inserts each persona's review into placeholders
+    combined = textwrap.dedent(
+        f"""
+        PERFORMANCE_REVIEW:
+        {reviews.get("performance", "")}
+
+        MAINTAINABILITY_REVIEW:
+        {reviews.get("maintainability", "")}
+
+        SECURITY_REVIEW:
+        {reviews.get("security", "")}
+        """
+    )
+
+    messages = [
+        {
+            "role": "system",
+            "content": SYNTHESIS_TEMPLATE,
+        },
+        {
+            "role": "user",
+            "content": f"<reviews>\n{combined}\n</reviews>",
+        },
+    ]
+
+    if not model:
+        logger.debug(
+            "No model provided for synthesis - skipping LLM call"
+        )
+        return "<skipped: no model provided>"
+
+    try:
+        resp: Any = completion(model=model, messages=messages)
+        content = resp.choices[0].message.content or ""
+        return content.strip()
+    except AuthenticationError as e:
+        logger.error(
+            f"LLM authentication failed in synthesize_perspectives: {e}"
+        )
+        return f"<error: authentication failed: {e}>"
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling LLM in synthesize_perspectives"
+        )
+        return f"<error: {e}>"
+
+
+def self_consistency_review(
+    synthesis: str, model: Optional[str] = None
+) -> str:
+    """Run a simple self-consistency check on the synthesized report.
+
+    This asks the model to look for contradictions or missed items and improve the report.
+    """
+    logger.debug("self_consistency_review called")
+    prompt = textwrap.dedent(
+        """
+        You are an expert software architect. Review the synthesized report provided below for internal
+        consistency, contradictions, missing high-severity issues, and clarity. Produce an improved
+        version of the synthesis that resolves contradictions and fills obvious gaps.
+
+        IMPORTANT: Format your entire reply using EXACTLY the following template and
+        nothing else. The output should be in Markdown and follow the tags.
+
+        [ANALYSIS]
+        <Summarize combined findings, grouped by area (performance, maintainability, security) and deduplicated.>
+        [/ANALYSIS]
+        [SUGGESTIONS]
+        <Provide the synthesized plan.>
+        [/SUGGESTIONS]
+        """
+    )
+
+    messages = [
+        {"role": "system", "content": prompt},
+        {
+            "role": "user",
+            "content": f"<synthesis>{synthesis}</synthesis>",
+        },
+    ]
+
+    if not model:
+        logger.debug(
+            "No model provided for self_consistency_review - skipping LLM call"
+        )
+        return "<skipped: no model provided>"
+
+    try:
+        resp: Any = completion(model=model, messages=messages)
+        content = resp.choices[0].message.content or ""
+        return content.strip()
+    except AuthenticationError as e:
+        logger.error(
+            f"LLM authentication failed in self_consistency_review: {e}"
+        )
+        return f"<error: authentication failed: {e}>"
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling LLM in self_consistency_review"
+        )
+        return f"<error: {e}>"
+
+
 @dataclass
 class ReviewRequest:
     """Represents a request to run a review pipeline.
@@ -299,6 +501,41 @@ def run_review_pipeline(
         click.echo(syntax_result)
         click.echo("--- Logic Analysis Result ---")
         click.echo(logic_result)
+
+        # Run persona-based reviews
+        click.echo(
+            "👥 Running persona-based reviews (performance, maintainability, security)..."
+        )
+        persona_reviews = run_reviews_with_personas(
+            diff,
+            model=model,
+            personas_dict={
+                "performance": PERFORMANCE_REVIEW_TEMPLATE,
+                "maintainability": MAINTAINABILITY_REVIEW_TEMPLATE,
+                "security": SECURITY_REVIEW_TEMPLATE,
+            },
+        )
+        click.echo("✅ Persona reviews completed")
+
+        # Synthesize perspectives
+        click.echo(
+            "🧩 Synthesizing perspectives into a single report..."
+        )
+        synthesis = synthesize_perspectives(
+            persona_reviews, model=model
+        )
+        click.echo("✅ Synthesis completed")
+        click.echo("--- Synthesized Report ---")
+        click.echo(synthesis)
+
+        # Self-consistency check
+        click.echo(
+            "🔁 Running self-consistency review on the synthesized report..."
+        )
+        refined = self_consistency_review(synthesis, model=model)
+        click.echo("✅ Self-consistency pass completed")
+        click.echo("--- Refined Synthesized Report ---")
+        click.echo(refined)
     except Exception:
         logger.exception(
             "Error while running analysis functions"
