@@ -2,7 +2,7 @@ import click
 import logging
 import textwrap
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List, Dict, Any, Literal, Union
 from ai_toolbox import git_utils
 from litellm import completion
 import json
@@ -87,6 +87,14 @@ LOGIC_REVIEW_TEMPLATE = textwrap.dedent(
      [/SUGGESTIONS]
      """
 )
+
+# Severity levels and rules to be interpolated into prompts
+SEVERITY_RULES = {
+    "critical": "Bugs that can cause data loss, security vulnerabilities, crashes, or incorrect results. Action: must fix before merge.",
+    "major": "Incorrect behavior or serious bugs that affect many users or core functionality. Action: high-priority fix.",
+    "minor": "Non-critical issues that impact correctness in edge cases or degrade UX. Action: address in a follow-up if not blocking.",
+    "info": "Stylistic suggestions, documentation, or low-risk improvements. Action: optional.",
+}
 
 
 # Persona-based prompt templates
@@ -210,7 +218,7 @@ def run_persona_review(
     persona_template: str,
     persona_name: str,
     model: Optional[str] = None,
-) -> str:
+) -> Union[str, Dict[str, Any]]:
     """Run a single persona review using the provided template.
 
     Returns the raw assistant content (string). If model is None, returns a skip placeholder.
@@ -229,6 +237,22 @@ def run_persona_review(
         },
     ]
 
+    # Helper: parse JSON from model content robustly (not used for persona reviews,
+    # but kept for future JSON-enabled prompts)
+    def _parse_model_json(raw: str) -> Any:
+        try:
+            return json.loads(raw)
+        except Exception:
+            # Attempt to extract first {...} block
+            start = raw.find("{")
+            end = raw.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                try:
+                    return json.loads(raw[start : end + 1])
+                except Exception:
+                    return raw
+            return raw
+
     if not model:
         logger.debug(
             "No model provided for persona review - skipping LLM call"
@@ -236,9 +260,10 @@ def run_persona_review(
         return "<skipped: no model provided>"
 
     try:
+        # For persona reviews we expect plain text in the tests, so do a simple completion
         resp: Any = completion(model=model, messages=messages)
         content = resp.choices[0].message.content or ""
-        return content.strip()
+        return content
     except AuthenticationError as e:
         logger.error(
             f"LLM authentication failed in run_persona_review: {e}"
@@ -255,12 +280,12 @@ def run_reviews_with_personas(
     diff: str,
     personas_dict: Dict[str, str],
     model: Optional[str] = None,
-) -> Dict[str, str]:
+) -> Dict[str, Union[str, Dict[str, Any]]]:
     """Run the performance, maintainability and security persona reviews.
 
     Returns a dict mapping persona name to the raw review string.
     """
-    reviews: Dict[str, str] = {}
+    reviews: Dict[str, Any] = {}
     for persona_name, persona_template in personas_dict.items():
         click.echo(
             f"👥 Running persona {persona_name} review..."
@@ -275,8 +300,9 @@ def run_reviews_with_personas(
 
 
 def synthesize_perspectives(
-    reviews: Dict[str, str], model: Optional[str] = None
-) -> str:
+    reviews: Dict[str, Union[str, Dict[str, Any]]],
+    model: Optional[str] = None,
+) -> Union[str, Dict[str, Any]]:
     """Synthesize multiple persona reviews into a single report using the lead architect persona.
 
     If model is None, returns a skip placeholder.
@@ -313,7 +339,11 @@ def synthesize_perspectives(
     try:
         resp: Any = completion(model=model, messages=messages)
         content = resp.choices[0].message.content or ""
-        return content.strip()
+        # Keep backward compatibility: return raw content if it's not JSON
+        try:
+            return json.loads(content)
+        except Exception:
+            return content
     except AuthenticationError as e:
         logger.error(
             f"LLM authentication failed in synthesize_perspectives: {e}"
@@ -513,7 +543,7 @@ def run_review_pipeline(
 
 def analyze_syntax(
     diff: str, model: Optional[str] = None
-) -> str:
+) -> Union[str, Dict[str, Any]]:
     """Analyze the provided diff for syntax/PEP8 issues using LLM.
 
     If `model` is None the call is skipped and a placeholder string is returned.
@@ -535,26 +565,34 @@ def analyze_syntax(
         logger.debug(
             "No model provided for analyze_syntax - skipping LLM call"
         )
-        return "<skipped: no model provided>"
+        return {"error": "<skipped: no model provided>"}
 
     try:
-        resp: Any = completion(model=model, messages=messages)
+        resp: Any = completion(
+            model=model,
+            messages=messages,
+            response_format={"type": "json_object"},
+        )
         content = resp.choices[0].message.content or ""
-        return content.strip()
+        try:
+            return json.loads(content)
+        except Exception:
+            return {"error": "invalid_json", "raw": content}
     except AuthenticationError as e:
         logger.error(
             f"LLM authentication failed in analyze_syntax: {e}"
         )
-        return f"<error: authentication failed: {e}>"
+        return {"error": f"authentication failed: {e}"}
     except Exception as e:
         logger.exception(
             "Unexpected error calling LLM in analyze_syntax"
         )
-        return f"<error: {e}>"
+        return {"error": str(e)}
 
 
 def self_consistency_review(
-    synthesis: str, model: Optional[str] = None
+    synthesis: Union[str, Dict[str, Any]],
+    model: Optional[str] = None,
 ) -> str:
     """Critique and refine the synthesized report using the principal-architect persona.
 
@@ -597,7 +635,7 @@ def analyze_logic(
     diff: str,
     model: Optional[str] = None,
     max_tool_iterations: int = 5,
-) -> str:
+) -> Dict[str, Any]:
     """Analyze the provided diff for logical issues using LLM.
 
     If `model` is None the call is skipped and a placeholder string is returned.
@@ -620,7 +658,7 @@ def analyze_logic(
         logger.debug(
             "No model provided for analyze_logic - skipping LLM call"
         )
-        return "<skipped: no model provided>"
+        return {"error": "<skipped: no model provided>"}
 
     # Provide tool schemas to the LLM so it can request tool calls
     tool_schemas = TOOL_REGISTRY.generate_all_tool_schemas()
@@ -686,14 +724,14 @@ def analyze_logic(
                     }
                 )
 
-        return last_message.strip()
+        return {"content": last_message.strip()}
     except AuthenticationError as e:
         logger.error(
             f"LLM authentication failed in analyze_logic: {e}"
         )
-        return f"<error: authentication failed: {e}>"
+        return {"error": f"authentication failed: {e}"}
     except Exception as e:
         logger.exception(
             "Unexpected error calling LLM in analyze_logic"
         )
-        return f"<error: {e}>"
+        return {"error": str(e)}
