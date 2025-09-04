@@ -187,6 +187,24 @@ SYNTHESIS_TEMPLATE = textwrap.dedent(
 )
 
 
+SELF_CRITIQUE_TEMPLATE = textwrap.dedent(
+    """
+    You are a principal software architect, known for concise, clear, and highly actionable feedback.
+
+    Task: Critique and refine the draft code review provided. Your goals are:
+    1) Consolidate related or duplicate points into a single clear item.
+    2) Verify factual accuracy of any claims in the draft (flag anything unsure or unsupported).
+    3) Improve clarity and wording so each recommendation is directly actionable (who should change what, and how).
+    4) Remove ambiguity and ensure the review is concise and easy for engineers to follow.
+
+    Output requirements:
+    - Return ONLY the polished, final version of the code review as plain text.
+    - Do not include notes about your process, internal chain-of-thought, or metadata.
+    - The output should read like a single, final review that an engineering lead could copy into a PR comment.
+    """
+)
+
+
 def run_persona_review(
     diff: str,
     persona_template: str,
@@ -279,10 +297,7 @@ def synthesize_perspectives(
     )
 
     messages = [
-        {
-            "role": "system",
-            "content": SYNTHESIS_TEMPLATE,
-        },
+        {"role": "system", "content": SYNTHESIS_TEMPLATE},
         {
             "role": "user",
             "content": f"<reviews>\n{combined}\n</reviews>",
@@ -307,62 +322,6 @@ def synthesize_perspectives(
     except Exception as e:
         logger.exception(
             "Unexpected error calling LLM in synthesize_perspectives"
-        )
-        return f"<error: {e}>"
-
-
-def self_consistency_review(
-    synthesis: str, model: Optional[str] = None
-) -> str:
-    """Run a simple self-consistency check on the synthesized report.
-
-    This asks the model to look for contradictions or missed items and improve the report.
-    """
-    logger.debug("self_consistency_review called")
-    prompt = textwrap.dedent(
-        """
-        You are an expert software architect. Review the synthesized report provided below for internal
-        consistency, contradictions, missing high-severity issues, and clarity. Produce an improved
-        version of the synthesis that resolves contradictions and fills obvious gaps.
-
-        IMPORTANT: Format your entire reply using EXACTLY the following template and
-        nothing else. The output should be in Markdown and follow the tags.
-
-        [ANALYSIS]
-        <Summarize combined findings, grouped by area (performance, maintainability, security) and deduplicated.>
-        [/ANALYSIS]
-        [SUGGESTIONS]
-        <Provide the synthesized plan.>
-        [/SUGGESTIONS]
-        """
-    )
-
-    messages = [
-        {"role": "system", "content": prompt},
-        {
-            "role": "user",
-            "content": f"<synthesis>{synthesis}</synthesis>",
-        },
-    ]
-
-    if not model:
-        logger.debug(
-            "No model provided for self_consistency_review - skipping LLM call"
-        )
-        return "<skipped: no model provided>"
-
-    try:
-        resp: Any = completion(model=model, messages=messages)
-        content = resp.choices[0].message.content or ""
-        return content.strip()
-    except AuthenticationError as e:
-        logger.error(
-            f"LLM authentication failed in self_consistency_review: {e}"
-        )
-        return f"<error: authentication failed: {e}>"
-    except Exception as e:
-        logger.exception(
-            "Unexpected error calling LLM in self_consistency_review"
         )
         return f"<error: {e}>"
 
@@ -478,6 +437,7 @@ def run_review_pipeline(
     preview = diff[:200]
 
     # Call analysis helpers if model provided (skipped during tests by default)
+    final_review = ""
     try:
         # Syntax analysis phase
         click.echo("🔧 Starting syntax analysis...")
@@ -541,12 +501,14 @@ def run_review_pipeline(
         click.echo("✅ Self-consistency pass completed")
         click.echo("--- Refined Synthesized Report ---")
         click.echo(refined)
+        # Include final polished review in the result
+        final_review = refined
     except Exception:
         logger.exception(
             "Error while running analysis functions"
         )
 
-    return {"preview": preview}
+    return {"preview": preview, "final_review": final_review}
 
 
 def analyze_syntax(
@@ -587,6 +549,46 @@ def analyze_syntax(
     except Exception as e:
         logger.exception(
             "Unexpected error calling LLM in analyze_syntax"
+        )
+        return f"<error: {e}>"
+
+
+def self_consistency_review(
+    synthesis: str, model: Optional[str] = None
+) -> str:
+    """Critique and refine the synthesized report using the principal-architect persona.
+
+    If model is None, returns a skip placeholder.
+    The output is a single polished final review (plain text).
+    """
+    logger.debug("self_consistency_review called")
+
+    messages = [
+        {"role": "system", "content": SELF_CRITIQUE_TEMPLATE},
+        {
+            "role": "user",
+            "content": f"<draft_review>\n{synthesis}\n</draft_review>",
+        },
+    ]
+
+    if not model:
+        logger.debug(
+            "No model provided for self_consistency_review - skipping LLM call"
+        )
+        return "<skipped: no model provided>"
+
+    try:
+        resp: Any = completion(model=model, messages=messages)
+        content = resp.choices[0].message.content or ""
+        return content.strip()
+    except AuthenticationError as e:
+        logger.error(
+            f"LLM authentication failed in self_consistency_review: {e}"
+        )
+        return f"<error: authentication failed: {e}>"
+    except Exception as e:
+        logger.exception(
+            "Unexpected error calling LLM in self_consistency_review"
         )
         return f"<error: {e}>"
 
@@ -638,9 +640,6 @@ def analyze_logic(
 
             model_message = model_response.choices[0].message
             last_message = model_message.content or ""
-
-            click.echo(f"🔄 Iteration {iteration + 1}:\n")
-            click.echo(model_message)
 
             # If there are no tool_calls, it means that the
             # model answer is final and we can exit the loop
