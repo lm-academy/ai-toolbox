@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Literal
 from ai_toolbox import git_utils
 from litellm import completion
+import json
+from ai_toolbox.tool_utils import TOOL_REGISTRY
 from litellm.exceptions import AuthenticationError
 
 logger = logging.getLogger(__name__)
@@ -66,7 +68,10 @@ LOGIC_REVIEW_TEMPLATE = textwrap.dedent(
      3) Third, also consider the overall code structure from a holistic
          perspective. In other words, not line-by-line, but from a more
          architectural viewpoint.
-     4) Fourth, formulate concrete suggestions to improve correctness,
+     4) Make sure to leverage available tools to collect feedback
+         for possible linting and security issues.
+     5) Finally, after collecting all the necessary information,
+         formulate concrete suggestions to improve correctness,
          robustness, and design.
 
      IMPORTANT: Format your entire reply using EXACTLY the following template and
@@ -586,7 +591,11 @@ def analyze_syntax(
         return f"<error: {e}>"
 
 
-def analyze_logic(diff: str, model: Optional[str] = None) -> str:
+def analyze_logic(
+    diff: str,
+    model: Optional[str] = None,
+    max_tool_iterations: int = 5,
+) -> str:
     """Analyze the provided diff for logical issues using LLM.
 
     If `model` is None the call is skipped and a placeholder string is returned.
@@ -596,10 +605,12 @@ def analyze_logic(diff: str, model: Optional[str] = None) -> str:
     logger.debug("analyze_logic called")
     prompt = LOGIC_REVIEW_TEMPLATE
 
+    # Prepare initial messages
     messages = [
+        {"role": "system", "content": prompt},
         {
             "role": "user",
-            "content": f"<diff>\n{diff}\n</diff>\n\n{prompt}",
+            "content": f"<diff>\n{diff}\n</diff>",
         },
     ]
 
@@ -609,10 +620,74 @@ def analyze_logic(diff: str, model: Optional[str] = None) -> str:
         )
         return "<skipped: no model provided>"
 
+    # Provide tool schemas to the LLM so it can request tool calls
+    tool_schemas = TOOL_REGISTRY.generate_all_tool_schemas()
+
+    iteration = 0
+    last_message = ""
+
     try:
-        resp: Any = completion(model=model, messages=messages)
-        content = resp.choices[0].message.content or ""
-        return content.strip()
+        while iteration < max_tool_iterations:
+            iteration += 1
+
+            model_response: Any = completion(
+                model=model,
+                messages=messages,
+                tools=tool_schemas,
+            )
+
+            model_message = model_response.choices[0].message
+            last_message = model_message.content or ""
+
+            click.echo(f"🔄 Iteration {iteration + 1}:\n")
+            click.echo(model_message)
+
+            # If there are no tool_calls, it means that the
+            # model answer is final and we can exit the loop
+            if not model_message.tool_calls:
+                break
+
+            messages.append(model_message)
+            tool_calls = model_message.tool_calls
+
+            for tool_call in tool_calls:
+                tool_id = tool_call.id
+                tool_name = tool_call.function.name
+                raw_tool_args = tool_call.function.arguments
+
+                try:
+                    args = (
+                        json.loads(raw_tool_args)
+                        if raw_tool_args
+                        else {}
+                    )
+                except json.JSONDecodeError:
+                    args = {}
+
+                try:
+                    tool_result = TOOL_REGISTRY.call_tool(
+                        tool_name, **args
+                    )
+                except KeyError:
+                    tool_result = (
+                        f"<error: tool not found: {tool_name}>"
+                    )
+                except Exception as e:
+                    tool_result = (
+                        f"<error: tool execution failed: {e}>"
+                    )
+
+                # Append the tool result to messages so the LLM can consume it
+                messages.append(
+                    {
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": str(tool_result),
+                        "tool_call_id": tool_id,
+                    }
+                )
+
+        return last_message.strip()
     except AuthenticationError as e:
         logger.error(
             f"LLM authentication failed in analyze_logic: {e}"

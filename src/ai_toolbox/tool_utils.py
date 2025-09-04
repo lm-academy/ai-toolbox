@@ -11,9 +11,14 @@ from .tool_registry import ToolRegistry
 TOOL_REGISTRY = ToolRegistry()
 
 
-def _validate_path(path: str) -> None:
+def _sanitize_path(path: str) -> str:
     if not isinstance(path, str) or not path.strip():
         raise ValueError("path must be a non-empty string")
+
+    if path.strip() in [".", "/", "~"]:
+        path = "src"
+
+    return path.strip()
 
 
 @TOOL_REGISTRY.register_tool()
@@ -23,9 +28,9 @@ def run_pylint(path: str) -> str:
     Returns combined stdout+stderr. If pylint is not installed, returns a
     descriptive error string instead of raising.
     """
-    _validate_path(path)
+    sanitized_path = _sanitize_path(path)
 
-    cmd = ["pylint", path]
+    cmd = ["pylint", sanitized_path]
     try:
         proc = subprocess.run(
             cmd,
@@ -48,9 +53,9 @@ def run_security_scan(path: str) -> str:
     Returns raw output (we use JSON format by default). If bandit is not
     installed, returns a descriptive error string.
     """
-    _validate_path(path)
+    sanitized_path = _sanitize_path(path)
 
-    cmd = ["bandit", "-r", path, "-f", "json"]
+    cmd = ["bandit", "-r", sanitized_path, "-f", "json"]
     try:
         proc = subprocess.run(
             cmd,

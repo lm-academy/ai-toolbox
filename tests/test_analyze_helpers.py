@@ -4,8 +4,9 @@ review = importlib.import_module("ai_toolbox.commands.review")
 
 
 class DummyMessage:
-    def __init__(self, content):
+    def __init__(self, content, tool_calls=[]):
         self.content = content
+        self.tool_calls = tool_calls
 
 
 class DummyChoice:
