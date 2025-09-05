@@ -5,10 +5,10 @@ def test_syntax_template_exists_and_structure():
     tpl = SYNTAX_REVIEW_TEMPLATE
     assert isinstance(tpl, str)
     # Must contain the exact wrapper sequence in order
-    assert "[ANALYSIS]" in tpl
-    assert "[/ANALYSIS]" in tpl
-    assert "[SUGGESTIONS]" in tpl
-    assert "[/SUGGESTIONS]" in tpl
+    assert "JSON object" in tpl
+    assert "summary" in tpl
+    assert "issues" in tpl
+    assert "suggestions" in tpl
     # Must mention out-of-scope items
     assert (
         "ignore logical" in tpl

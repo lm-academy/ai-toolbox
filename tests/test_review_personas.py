@@ -14,10 +14,10 @@ def test_persona_templates_exist_and_have_structure():
 
     for tpl in templates:
         assert isinstance(tpl, str)
-        assert "[ANALYSIS]" in tpl
-        assert "[/ANALYSIS]" in tpl
-        assert "[SUGGESTIONS]" in tpl
-        assert "[/SUGGESTIONS]" in tpl
+        assert "JSON object" in tpl
+        assert "summary" in tpl
+        assert "issues" in tpl
+        assert "suggestions" in tpl
         # ensure they contain persona-specific keywords
     assert "performance" in PERFORMANCE_REVIEW_TEMPLATE.lower()
     assert (

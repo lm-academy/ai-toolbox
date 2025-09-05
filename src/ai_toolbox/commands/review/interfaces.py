@@ -28,7 +28,7 @@ class ReviewIssue:
     id: str
     severity: Literal["info", "minor", "major", "critical"]
     category: str
-    message: str
+    description: str
     file: Optional[str] = None
     line: Optional[int] = None
     snippet: Optional[str] = None
@@ -38,7 +38,7 @@ class ReviewIssue:
             "id": self.id,
             "severity": self.severity,
             "category": self.category,
-            "message": self.message,
+            "description": self.description,
             "file": self.file,
             "line": self.line,
             "snippet": self.snippet,
@@ -52,12 +52,10 @@ class ReviewResult:
     summary: str
     issues: list[ReviewIssue] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
-    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "summary": self.summary,
             "issues": [i.to_dict() for i in self.issues],
             "suggestions": self.suggestions,
-            "metadata": self.metadata,
         }

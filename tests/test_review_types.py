@@ -29,7 +29,7 @@ def test_review_issue_to_dict_and_review_result_to_dict():
         id="ISSUE-1",
         severity="minor",
         category="style",
-        message="Use f-strings",
+        description="Use f-strings",
         file="foo.py",
         line=10,
         snippet="- old\n+ new",
@@ -43,7 +43,6 @@ def test_review_issue_to_dict_and_review_result_to_dict():
         summary="Found issues",
         issues=[issue],
         suggestions=["Refactor this function"],
-        metadata={"duration": 0.1},
     )
 
     result_dict = result.to_dict()

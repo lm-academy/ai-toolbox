@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock
 from ai_toolbox.commands.review import (
     run_reviews_with_personas,
@@ -19,13 +20,31 @@ def test_run_reviews_with_personas_and_synthesis(mocker):
 
     # Mock persona completions
     perf_resp = make_mock_response(
-        "[ANALYSIS]perf[/ANALYSIS][SUGGESTIONS]opt[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "summary": "perf",
+                "issues": [],
+                "suggestions": ["opt"],
+            }
+        )
     )
     maint_resp = make_mock_response(
-        "[ANALYSIS]maint[/ANALYSIS][SUGGESTIONS]refactor[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "summary": "maint",
+                "issues": [],
+                "suggestions": ["refactor"],
+            }
+        )
     )
     sec_resp = make_mock_response(
-        "[ANALYSIS]sec[/ANALYSIS][SUGGESTIONS]fix[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "summary": "sec",
+                "issues": [],
+                "suggestions": ["fix"],
+            }
+        )
     )
 
     mock_completion = mocker.patch(
@@ -33,10 +52,22 @@ def test_run_reviews_with_personas_and_synthesis(mocker):
     )
     # persona calls: performance, maintainability, security, then synthesis, then self-consistency
     synth_resp = make_mock_response(
-        "[ANALYSIS]synth[/ANALYSIS][SUGGESTIONS]plan[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "summary": "synth",
+                "issues": [],
+                "suggestions": ["plan"],
+            }
+        )
     )
     refined_resp = make_mock_response(
-        "[ANALYSIS]refined[/ANALYSIS][SUGGESTIONS]final-plan[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "summary": "refined",
+                "issues": [],
+                "suggestions": ["final-plan"],
+            }
+        )
     )
 
     mock_completion.side_effect = [
@@ -63,12 +94,16 @@ def test_run_reviews_with_personas_and_synthesis(mocker):
     synthesis = synthesize_perspectives(
         reviews, model="fake-model"
     )
-    assert "[ANALYSIS]" in synthesis
+    assert "summary" in synthesis
+    assert "issues" in synthesis
+    assert "suggestions" in synthesis
 
     refined = self_consistency_review(
         synthesis, model="fake-model"
     )
-    assert "[ANALYSIS]" in refined
+    assert "summary" in refined
+    assert "issues" in refined
+    assert "suggestions" in refined
 
     # Ensure completion was called 5 times
     assert mock_completion.call_count == 5
