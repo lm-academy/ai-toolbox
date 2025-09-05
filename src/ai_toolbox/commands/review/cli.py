@@ -12,8 +12,27 @@ logger = logging.getLogger(__name__)
     default=True,
     help="Choose to review staged changes (default) or uncommitted changes.",
 )
+@click.option(
+    "--output",
+    type=click.Choice(
+        ["markdown", "json"], case_sensitive=False
+    ),
+    default="markdown",
+    help="Choose output format: markdown (default) or json.",
+)
+@click.option(
+    "--output-path",
+    type=click.Path(dir_okay=False, writable=True),
+    default=None,
+    help="Optional path to write the output to (file will be overwritten).",
+)
 @click.pass_context
-def review(ctx: click.Context, staged: bool) -> None:
+def review(
+    ctx: click.Context,
+    staged: bool,
+    output: str,
+    output_path: str,
+) -> None:
     """Scaffold for the review command.
 
     The command is intentionally lightweight for now. The real review
@@ -36,4 +55,24 @@ def review(ctx: click.Context, staged: bool) -> None:
     )
     result = run_review_pipeline(diff=diff, model=model)
 
-    click.echo(result.to_dict())
+    # Prepare formatted output
+    out_format = output or "markdown"
+    out_path = output_path
+
+    if out_format.lower() == "json":
+        formatted = result.to_json()
+    else:
+        formatted = result.to_markdown()
+
+    if out_path:
+        try:
+            with open(out_path, "w", encoding="utf-8") as fh:
+                fh.write(formatted)
+            click.echo(f"Wrote review output to: {out_path}")
+        except Exception as e:
+            logger.exception(
+                "Failed to write review output to file: %s", e
+            )
+            click.echo(f"Failed to write to {out_path}: {e}")
+    else:
+        click.echo(formatted)

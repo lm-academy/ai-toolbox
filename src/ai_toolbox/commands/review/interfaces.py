@@ -60,6 +60,57 @@ class ReviewResult:
             "suggestions": self.suggestions,
         }
 
+    def to_json(self) -> str:
+        """Return a JSON string representation of this ReviewResult."""
+        import json
+
+        return json.dumps(self.to_dict())
+
+    def to_markdown(self) -> str:
+        """Return a human-friendly Markdown formatted string for this review.
+
+        Format:
+        # Review Summary
+        <summary>
+
+        ## Issues (N)
+        - **severity**: description (file:line)
+
+        ## Suggestions
+        - suggestion1
+        """
+        lines: list[str] = []
+
+        lines.append("# Review Summary")
+        lines.append("")
+        lines.append(self.summary)
+        lines.append("")
+
+        lines.append(f"## Issues ({len(self.issues)})")
+        lines.append("")
+        if self.issues:
+            for issue in self.issues:
+                location = ""
+                if issue.file:
+                    loc = issue.file
+                    if issue.line is not None:
+                        loc += f":" + str(issue.line)
+                    location = f" ({loc})"
+                lines.append(f"- **{issue.severity}**: {issue.description}{location}")
+        else:
+            lines.append("- No issues found")
+
+        lines.append("")
+        lines.append("## Suggestions")
+        lines.append("")
+        if self.suggestions:
+            for s in self.suggestions:
+                lines.append(f"- {s}")
+        else:
+            lines.append("- No suggestions")
+
+        return "\n".join(lines)
+
 
 def review_result_factory(
     result_type: Literal[
