@@ -4,6 +4,7 @@ from ai_toolbox.commands.review import (
     run_reviews_with_personas,
     synthesize_perspectives,
     self_consistency_review,
+    ReviewResult,
 )
 
 
@@ -12,6 +13,9 @@ def make_mock_response(text):
     mock_resp.choices = [Mock()]
     mock_resp.choices[0].message = Mock()
     mock_resp.choices[0].message.content = text
+    mock_resp.choices[0].message.tool_calls = (
+        None  # No tool calls
+    )
     return mock_resp
 
 
@@ -94,16 +98,16 @@ def test_run_reviews_with_personas_and_synthesis(mocker):
     synthesis = synthesize_perspectives(
         reviews, model="fake-model"
     )
-    assert "summary" in synthesis
-    assert "issues" in synthesis
-    assert "suggestions" in synthesis
+    assert synthesis.summary == "synth"
+    assert synthesis.issues == []
+    assert synthesis.suggestions == ["plan"]
 
     refined = self_consistency_review(
         synthesis, model="fake-model"
     )
-    assert "summary" in refined
-    assert "issues" in refined
-    assert "suggestions" in refined
+    assert refined.summary == "refined"
+    assert refined.issues == []
+    assert refined.suggestions == ["final-plan"]
 
     # Ensure completion was called 5 times
     assert mock_completion.call_count == 5
@@ -121,18 +125,28 @@ def test_pipeline_skips_llm_when_no_model():
         },
     )
     assert (
-        reviews["performance"] == "<skipped: no model provided>"
+        reviews["performance"].summary
+        == "No model provided - skipping review"
     )
     assert (
-        reviews["maintainability"]
-        == "<skipped: no model provided>"
+        reviews["maintainability"].summary
+        == "No model provided - skipping review"
     )
-    assert reviews["security"] == "<skipped: no model provided>"
+    assert (
+        reviews["security"].summary
+        == "No model provided - skipping review"
+    )
 
     synthesis = synthesize_perspectives(reviews, model=None)
-    assert synthesis == "<skipped: no model provided>"
-
-    refined = self_consistency_review(
-        "some synthesis", model=None
+    assert (
+        synthesis.summary
+        == "No model provided - skipping review"
     )
-    assert refined == "<skipped: no model provided>"
+
+    test_synthesis = ReviewResult(
+        summary="some synthesis", issues=[], suggestions=[]
+    )
+    refined = self_consistency_review(test_synthesis, model=None)
+    assert (
+        refined.summary == "No model provided - skipping review"
+    )

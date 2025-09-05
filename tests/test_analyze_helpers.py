@@ -27,8 +27,9 @@ def test_analyze_syntax_calls_llm_and_returns_content(mocker):
     mock_resp = DummyResponse(
         json.dumps(
             {
-                "analysis": "[ANALYSIS]syntax[/ANALYSIS]",
-                "suggestions": "[SUGGESTIONS]none[/SUGGESTIONS]",
+                "summary": "syntax analysis summary",
+                "issues": [],
+                "suggestions": ["none"],
             }
         )
     )
@@ -40,8 +41,9 @@ def test_analyze_syntax_calls_llm_and_returns_content(mocker):
 
     result = analyze_syntax(sample_diff, model="fake-model")
 
-    assert "analysis" in result
-    assert "suggestions" in result
+    assert result.summary == "syntax analysis summary"
+    assert result.suggestions == ["none"]
+    assert isinstance(result.issues, list)
     m.assert_called_once()
 
 
@@ -50,8 +52,9 @@ def test_analyze_logic_calls_llm_and_returns_content(mocker):
     mock_resp = DummyResponse(
         json.dumps(
             {
-                "analysis": "[ANALYSIS]logic[/ANALYSIS]",
-                "suggestions": "[SUGGESTIONS]none[/SUGGESTIONS]",
+                "summary": "logic analysis summary",
+                "issues": [],
+                "suggestions": ["logic suggestions"],
             }
         )
     )
@@ -63,16 +66,20 @@ def test_analyze_logic_calls_llm_and_returns_content(mocker):
 
     result = analyze_logic(sample_diff, model="fake-model")
 
-    assert "analysis" in result["content"]
-    assert "suggestions" in result["content"]
+    assert result.summary == "logic analysis summary"
+    assert result.suggestions == ["logic suggestions"]
+    assert isinstance(result.issues, list)
     m.assert_called_once()
 
 
 def test_analyze_helpers_skip_when_no_model():
     sample_diff = "+ def ok():\n+    pass"
-    assert analyze_syntax(sample_diff) == {
-        "error": "<skipped: no model provided>"
-    }
-    assert analyze_logic(sample_diff) == {
-        "error": "<skipped: no model provided>"
-    }
+    syntax_result = analyze_syntax(sample_diff)
+    assert syntax_result.summary == "No model provided - skipping review"
+    assert syntax_result.issues == []
+    assert syntax_result.suggestions == []
+    
+    logic_result = analyze_logic(sample_diff)
+    assert logic_result.summary == "No model provided - skipping review"
+    assert logic_result.issues == []
+    assert logic_result.suggestions == []
