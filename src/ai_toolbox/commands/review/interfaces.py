@@ -59,3 +59,49 @@ class ReviewResult:
             "issues": [i.to_dict() for i in self.issues],
             "suggestions": self.suggestions,
         }
+
+
+def review_result_factory(
+    result_type: Literal[
+        "no-model", "auth-error", "generic-error"
+    ],
+    error_message: str = "",
+):
+    if result_type == "no-model":
+        return ReviewResult(
+            summary="No model provided - skipping review",
+            issues=[],
+            suggestions=[],
+        )
+    elif result_type == "auth-error":
+        return ReviewResult(
+            summary=f"Authentication error - skipping review: {error_message}",
+            issues=[
+                ReviewIssue(
+                    id="",
+                    severity="major",
+                    category="authentication",
+                    description=f"Authentication failed: {error_message}",
+                    file=None,
+                    line=None,
+                    snippet=None,
+                )
+            ],
+            suggestions=[],
+        )
+    elif result_type == "generic-error":
+        return ReviewResult(
+            summary=f"Generic error - skipping review: {error_message}",
+            issues=[
+                ReviewIssue(
+                    id="",
+                    severity="major",
+                    category="unknown",
+                    description=f"Unexpected error: {error_message}",
+                    file=None,
+                    line=None,
+                    snippet=None,
+                )
+            ],
+            suggestions=[],
+        )

@@ -36,5 +36,4 @@ def review(ctx: click.Context, staged: bool) -> None:
     )
     result = run_review_pipeline(diff=diff, model=model)
 
-    preview = result.get("preview", "")
-    click.echo(f"Review preview (first 200 chars):\n{preview}")
+    click.echo(result.to_dict())
