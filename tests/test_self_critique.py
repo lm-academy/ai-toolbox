@@ -19,7 +19,7 @@ def test_self_consistency_review_and_pipeline_integration(
     draft = "Initial synthesis"
 
     mock_completion = mocker.patch(
-        "ai_toolbox.commands.review.completion"
+        "ai_toolbox.commands.review.helpers.completion"
     )
 
     # self_consistency_review should be called once with the synthesis
@@ -32,7 +32,7 @@ def test_self_consistency_review_and_pipeline_integration(
 
     # Now ensure pipeline returns final_review when model is provided
     mocker.patch(
-        "ai_toolbox.commands.review.git_utils.get_diff",
+        "ai_toolbox.commands.review.cli.get_diff",
         return_value="x" * 300,
     )
 

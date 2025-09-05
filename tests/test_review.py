@@ -20,12 +20,12 @@ def test_review_command_calls_git_and_outputs_preview(mocker):
     # Arrange
     sample_diff = "x" * 300
     mocker.patch(
-        "ai_toolbox.commands.review.git_utils.get_diff",
+        "ai_toolbox.commands.review.cli.get_diff",
         return_value=sample_diff,
     )
     # Mock the LLM completion to avoid real network calls
     mock_completion = mocker.patch(
-        "ai_toolbox.commands.review.completion"
+        "ai_toolbox.commands.review.helpers.completion"
     )
     from unittest.mock import Mock
 

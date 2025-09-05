@@ -3,7 +3,7 @@
 import subprocess
 import pytest
 from click.testing import CliRunner
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from litellm.exceptions import AuthenticationError
 
 from ai_toolbox.commands.commit import (

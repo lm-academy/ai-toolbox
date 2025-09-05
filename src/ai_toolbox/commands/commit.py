@@ -7,7 +7,6 @@ generates a commit message based on staged changes.
 import subprocess
 import click
 import logging
-import sys
 from typing import Any
 from litellm import completion
 from litellm.exceptions import AuthenticationError

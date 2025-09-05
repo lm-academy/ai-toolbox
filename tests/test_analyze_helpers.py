@@ -1,6 +1,9 @@
-import importlib
+import json
 
-review = importlib.import_module("ai_toolbox.commands.review")
+from ai_toolbox.commands.review import (
+    analyze_syntax,
+    analyze_logic,
+)
 
 
 class DummyMessage:
@@ -22,50 +25,54 @@ class DummyResponse:
 def test_analyze_syntax_calls_llm_and_returns_content(mocker):
     sample_diff = "+ def foo():\n+    return 1"
     mock_resp = DummyResponse(
-        "[ANALYSIS]ok[/ANALYSIS][SUGGESTIONS]fix[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "analysis": "[ANALYSIS]syntax[/ANALYSIS]",
+                "suggestions": "[SUGGESTIONS]none[/SUGGESTIONS]",
+            }
+        )
     )
 
     m = mocker.patch(
-        "ai_toolbox.commands.review.completion",
+        "ai_toolbox.commands.review.helpers.completion",
         return_value=mock_resp,
     )
 
-    result = review.analyze_syntax(
-        sample_diff, model="fake-model"
-    )
+    result = analyze_syntax(sample_diff, model="fake-model")
 
-    assert "[ANALYSIS]" in result
-    assert "[SUGGESTIONS]" in result
+    assert "analysis" in result
+    assert "suggestions" in result
     m.assert_called_once()
 
 
 def test_analyze_logic_calls_llm_and_returns_content(mocker):
     sample_diff = "+ def bar():\n+    return x"
     mock_resp = DummyResponse(
-        "[ANALYSIS]logic[/ANALYSIS][SUGGESTIONS]improve[/SUGGESTIONS]"
+        json.dumps(
+            {
+                "analysis": "[ANALYSIS]logic[/ANALYSIS]",
+                "suggestions": "[SUGGESTIONS]none[/SUGGESTIONS]",
+            }
+        )
     )
 
     m = mocker.patch(
-        "ai_toolbox.commands.review.completion",
+        "ai_toolbox.commands.review.helpers.completion",
         return_value=mock_resp,
     )
 
-    result = review.analyze_logic(
-        sample_diff, model="fake-model"
-    )
+    result = analyze_logic(sample_diff, model="fake-model")
 
-    assert "[ANALYSIS]" in result
-    assert "[SUGGESTIONS]" in result
+    assert "analysis" in result["content"]
+    assert "suggestions" in result["content"]
     m.assert_called_once()
 
 
 def test_analyze_helpers_skip_when_no_model():
     sample_diff = "+ def ok():\n+    pass"
-    assert (
-        review.analyze_syntax(sample_diff)
-        == "<skipped: no model provided>"
-    )
-    assert (
-        review.analyze_logic(sample_diff)
-        == "<skipped: no model provided>"
-    )
+    assert analyze_syntax(sample_diff) == {
+        "error": "<skipped: no model provided>"
+    }
+    assert analyze_logic(sample_diff) == {
+        "error": "<skipped: no model provided>"
+    }

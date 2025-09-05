@@ -6,13 +6,7 @@ tests and callers can remain simple.
 """
 
 from typing import Optional
-import subprocess
-from git import (
-    Repo,
-    InvalidGitRepositoryError,
-    NoSuchPathError,
-    GitCommandError,
-)
+from git import Repo
 
 
 def _get_staged_diff(path: Optional[str] = None) -> str:

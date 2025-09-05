@@ -1,6 +1,5 @@
 import click
 import logging
-import sys
 from textwrap import dedent
 from typing import Any
 from dotenv import load_dotenv

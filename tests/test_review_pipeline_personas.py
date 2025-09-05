@@ -29,7 +29,7 @@ def test_run_reviews_with_personas_and_synthesis(mocker):
     )
 
     mock_completion = mocker.patch(
-        "ai_toolbox.commands.review.completion"
+        "ai_toolbox.commands.review.helpers.completion"
     )
     # persona calls: performance, maintainability, security, then synthesis, then self-consistency
     synth_resp = make_mock_response(

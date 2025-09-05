@@ -1,7 +1,5 @@
 import pytest
-import json
 
-from ai_toolbox import tool_registry
 from ai_toolbox.tool_registry import ToolRegistry
 
 
