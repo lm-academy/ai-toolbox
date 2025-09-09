@@ -1,11 +1,11 @@
-# AI Toolbox Documentation Index
+# AI Toolbox Documentation
 
-Welcome — this project is documented with a few small pages that explain how to run the CLI and the included commands.
+This repository contains a small CLI-first toolkit that demonstrates how to wire LLM calls into developer workflows. The documentation below summarizes the implemented features, how to use the CLI, and how to set up a local development environment.
 
-See:
+Pages
 
 - `cli.md` — CLI usage and global options
 - `commands.md` — per-command details and behavior
-- `contributing.md` — development and testing notes
+- `contributing.md` — development, testing and packaging notes
 
-If you'd like a full website generated (Sphinx, MkDocs), I can add a basic MkDocs configuration and build pipeline as a follow-up.
+If you want a generated website (MkDocs / Sphinx), the repo is small and can be wired to a docs site; open a follow-up issue or I can add a basic MkDocs config.

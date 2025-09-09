@@ -1,39 +1,66 @@
-# Contributing & Development
+## Contributing & development
 
-Development notes for working on AI Toolbox.
+This page contains concrete steps to set up a local development environment, run tests, and package the project.
 
-## Setup
+Local development setup
 
-1. Create a virtual environment and activate it.
+1. Create and activate a virtual environment (macOS / zsh):
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+```
+
+2. Install editable package with dev extras (installs pytest, pylint, bandit):
+
+```bash
 python -m pip install -e .[dev]
 ```
 
-2. Provide LLM credentials in a `.env` file or in your environment. The code expects `litellm` to read credentials from the environment.
+3. Provide LLM credentials
 
-## Tests
+- The CLI bootstraps environment variables by calling `dotenv.load_dotenv()`. Create a `.env` file in the project root or set environment variables directly. `litellm` will read whichever variables it needs for authentication. For example your `.env` may contain provider-specific keys; consult your `litellm` provider docs.
 
-Run the test suite with pytest:
+Optional tools
+
+- To exercise the `tool_utils` wrappers install `pylint` and `bandit` (already included in dev extras). These are used by the tool registry if the LLM requests them.
+
+Running tests
+
+Run the full test suite with:
 
 ```bash
 pytest -q
 ```
 
-The project includes a small set of unit tests in the `tests/` folder. When changing behavior, add tests to cover the new code paths.
+The tests are located in the `tests/` directory and cover the CLI, git utilities, tool registry and review helpers.
 
-## Packaging
+Linting / security scanning
 
-This project uses `pyproject.toml`. Build a wheel with:
+- Run pylint:
+
+```bash
+pylint src/ai_toolbox
+```
+
+- Run bandit (security scan):
+
+```bash
+bandit -r src/ai_toolbox
+```
+
+Packaging
+
+Build a wheel using the pyproject configuration:
 
 ```bash
 python -m build
 ```
 
-Then publish with your preferred method (Twine, etc.).
+Then publish using your preferred workflow (for example Twine to publish to PyPI).
 
-## Code style
+Developer notes
 
-Follow PEP8 and prefer small, well-tested changes. Keep click command functions focused and testable.
+- The CLI entry point is `ai_toolbox.main:cli` and a console script `ai-toolbox` is defined in `pyproject.toml`.
+- The code prefers `litellm` for model calls and wraps errors like authentication failures to provide helpful CLI messages.
+- The review pipeline is intentionally modular: `analyze_syntax`, `analyze_logic`, persona review functions and the tool registry can be changed independently; add tests when modifying their public behavior.

@@ -1,44 +1,35 @@
 # AI Toolbox
 
-AI Toolbox is a small CLI-first Python utility that helps generate developer-facing text using LLMs (for example: commit messages and brief greetings). It provides a Click-based command group with example commands and a simple integration with an LLM backend via `litellm`.
+AI Toolbox is a lightweight, CLI-first Python utility for using LLMs to help with developer workflows. It provides small, focused commands and a minimal tool registry so LLMs can call local developer tools.
 
-This repository is intended as both a learning example and a lightweight helper for everyday git workflows.
+## Highlights
 
-## Features
+- Click-based CLI with top-level commands: `hello`, `commit`, and `review`.
+- Commit message generation: analyzes staged diffs and produces Conventional Commits-compliant messages (interactive approval / adjust flow).
+- Review pipeline: syntax, logic, persona-based reviews (performance, maintainability, security) and a synthesis/refinement stage.
+- Tool Registry + Tool wrappers: `tool_registry` and `tool_utils` expose tools such as `run_pylint` and `run_security_scan` that the review pipeline can use.
+- Git helpers: `git_utils` provides `get_diff` and `run_commit` using GitPython.
+- Pluggable LLM backend via `litellm` and configurable model with `--model`.
 
-- Generate conventional commit messages from staged git diffs (`commit` command).
-- Produce short, friendly greetings from an LLM (`hello` command).
-- Pluggable LLM model via `--model` CLI option and environment variables.
+## Quick install (development)
 
-## Installation
-
-Install from PyPI (when published):
-
-```bash
-pip install ai_toolbox
-```
-
-Run from source (recommended during development):
+Clone and install in editable mode with dev dependencies:
 
 ```bash
-git clone <repo>
+git clone <repo-url>
 cd ai-toolbox
-python -m pip install -e .  # optional: installs package in editable mode
-# then run the CLI via
-python -m ai_toolbox.main --help
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .[dev]
 ```
 
-Run after installing the package (console script):
+## Environment
 
-```bash
-# If installed (pip install ai_toolbox), the package exposes a console script named `ai-toolbox`.
-# You can run the same commands without the -m form:
-ai-toolbox --help
-ai-toolbox hello
-ai-toolbox commit
-```
+- The project uses `litellm` for LLM access. Provide LLM credentials via environment variables or a `.env` file at the project root. The code calls `dotenv.load_dotenv()` in the CLI bootstrap.
+- Ensure `git` is installed and available on PATH when running git-related commands.
+- Optional tools used by `tool_utils`: `pylint` and `bandit` (installable via dev extras).
 
-## Quick usage
+## Usage examples
 
 Run the CLI module directly:
 
@@ -46,43 +37,30 @@ Run the CLI module directly:
 # Show help
 python -m ai_toolbox.main --help
 
-# Generate a greeting (prints an LLM-generated one-liner)
+# Generate a greeting
 python -m ai_toolbox.main hello
 
-# Generate a commit message from staged changes (interactive)
+# Generate a commit message (requires staged changes)
 python -m ai_toolbox.main commit
+
+# Run a lightweight review of staged changes
+python -m ai_toolbox.main review
 ```
 
-Notes:
+## Console script
 
-- The project uses `litellm` for LLM access; ensure your LLM credentials/API keys are available in the environment (for example via a `.env` file) before running commands that call the LLM.
-- The `commit` command relies on `git` being installed and some changes staged (`git add`) to generate a diff.
+When installed (`pip install .` or via the editable dev install above) a console script named `ai-toolbox` is exposed and maps to the same Click entry point.
+
+## Development notes
+
+- Tests: run `pytest -q` to execute the unit test suite in `tests/`.
+- Lint & security: `pylint` and `bandit` wrappers are available via `ai_toolbox.tool_utils.TOOL_REGISTRY` and can be executed by the review pipeline.
+- Packaging: `pyproject.toml` defines the package metadata and dependencies.
 
 ## Documentation
 
-Detailed documentation is in the `docs/` directory. Start with `docs/index.md`.
-
-## Contributing
-
-See `docs/contributing.md` for guidelines on developing and testing locally.
+See the `docs/` folder for CLI details, per-command docs and development instructions. Start with `docs/index.md`.
 
 ## License
 
-This project is provided under the terms of the repository `LICENSE` file.
-
-# AI Toolbox
-
-A brief description of your library.
-
-## Installation
-
-```bash
-pip install ai_toolbox
-```
-
-## Usage
-
-```python
-import ai_toolbox
-# Example usage
-```
+MIT — see `LICENSE`.

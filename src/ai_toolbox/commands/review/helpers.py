@@ -331,7 +331,12 @@ def run_review_pipeline(
             "🧩 Synthesizing perspectives into a single report..."
         )
         synthesis = synthesize_perspectives(
-            persona_reviews, model=model
+            {
+                **persona_reviews,
+                "syntax": syntax_result,
+                "logic": logic_result,
+            },
+            model=model,
         )
         click.echo("✅ Synthesis completed")
         click.echo("--- Synthesized Report ---")
