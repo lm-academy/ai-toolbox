@@ -61,7 +61,12 @@ class ReviewResult:
         }
 
     def to_json(self) -> str:
-        """Return a JSON string representation of this ReviewResult."""
+        """Return a JSON string representation of this ReviewResult.
+
+        The JSON includes the ``summary``, a list of issue objects and the
+        suggestions list. Useful for programmatic consumption in CI or
+        tooling that expects JSON output from the review command.
+        """
         import json
 
         return json.dumps(self.to_dict())
@@ -69,15 +74,9 @@ class ReviewResult:
     def to_markdown(self) -> str:
         """Return a human-friendly Markdown formatted string for this review.
 
-        Format:
-        # Review Summary
-        <summary>
-
-        ## Issues (N)
-        - **severity**: description (file:line)
-
-        ## Suggestions
-        - suggestion1
+        The markdown contains a top-level summary followed by an issues
+        section and suggestions. The format is intentionally simple so the
+        output can be rendered on the terminal or saved to a file.
         """
         lines: list[str] = []
 

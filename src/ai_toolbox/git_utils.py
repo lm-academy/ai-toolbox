@@ -10,11 +10,20 @@ from git import Repo
 
 
 def _get_staged_diff(path: Optional[str] = None) -> str:
-    """Return the staged git diff as a string.
+    """Return the repository's staged diff as a unified diff string.
+
+    Uses GitPython's ``Repo.git.diff('--staged')`` to obtain the textual
+    diff for files that have been staged (i.e. `git add` was run).
+
+    Args:
+        path: Optional repository path. Defaults to the current working directory.
+
+    Returns:
+        A unified diff string (possibly empty if nothing is staged).
 
     Raises:
-        subprocess.CalledProcessError: If the current directory is not a git repo
-        FileNotFoundError: If the underlying git binary cannot be found
+        git.InvalidGitRepositoryError / git.GitCommandError: if the path is not a Git repository
+        FileNotFoundError: if the underlying git binary or environment is missing
     """
     repo_path = path or "."
 
@@ -25,9 +34,16 @@ def _get_staged_diff(path: Optional[str] = None) -> str:
 
 
 def _get_uncommitted_diff(path: Optional[str] = None) -> str:
-    """Return the working-tree (uncommitted) diff as a string.
+    """Return the repository's uncommitted (working tree) diff as a string.
 
-    This mirrors the previous behavior of `git diff` without --staged.
+    This mirrors a plain ``git diff`` (no ``--staged``) and returns the
+    textual diff for files with unstaged changes.
+
+    Args:
+        path: Optional repository path. Defaults to the current working directory.
+
+    Returns:
+        A unified diff string of uncommitted changes (empty if none).
     """
     repo_path = path or "."
 
@@ -39,10 +55,14 @@ def _get_uncommitted_diff(path: Optional[str] = None) -> str:
 def get_diff(
     staged: bool = True, path: Optional[str] = None
 ) -> str:
-    """Convenience helper returning either staged or uncommitted diff.
+    """Return either the staged or uncommitted diff for a repository.
 
     Args:
-        staged: if True return staged diff, otherwise uncommitted diff.
+        staged: If True return the staged diff (``git diff --staged``).
+        path: Optional repository path to operate on; defaults to current dir.
+
+    Returns:
+        The requested unified diff as a string.
     """
     if staged:
         return _get_staged_diff(path=path)
@@ -50,10 +70,19 @@ def get_diff(
 
 
 def run_commit(message: str, path: Optional[str] = None) -> None:
-    """Run a git commit with the provided message.
+    """Create a git commit in ``path`` with the provided commit message.
 
-    Raises subprocess.CalledProcessError on failure to keep compatibility
-    with the previous implementation that used subprocess.run(..., check=True).
+    Args:
+        message: Commit message text to use for the new commit.
+        path: Optional repository path. Defaults to current working directory.
+
+    Raises:
+        git.GitCommandError / subprocess.CalledProcessError: on failure to commit.
+
+    Notes:
+        This function uses GitPython's ``repo.git.commit(m=message)`` which
+        mirrors the behavior of calling ``git commit -m ...``. It does not
+        stage files — the caller is expected to have staged the intended changes.
     """
     repo_path = path or "."
 

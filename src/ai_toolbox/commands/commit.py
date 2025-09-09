@@ -54,10 +54,17 @@ Generate an appropriate commit message based on the changes shown in the diff ab
 
 
 def get_staged_diff() -> str:
-    """Get the staged git diff using GitPython adapter.
+    """Retrieve the staged git diff for the current repository.
 
-    This function delegates to `ai_toolbox.git_utils.get_staged_diff()` and
-    preserves the same exception types/interfaces as before.
+    Returns the unified diff string for files staged for commit. This is a
+    thin wrapper around ``ai_toolbox.git_utils.get_diff(staged=True)`` and
+    preserves the same exceptions from GitPython/Git.
+
+    Returns:
+        The staged unified diff as a string (may be empty).
+
+    Raises:
+        See ``ai_toolbox.git_utils``: InvalidGitRepositoryError, GitCommandError, FileNotFoundError
     """
     logger.debug(
         "Starting to retrieve staged git diff via git_utils"
@@ -90,11 +97,25 @@ def get_staged_diff() -> str:
 @click.command()
 @click.pass_context
 def commit(ctx: click.Context) -> None:
-    """Generate a commit message based on staged changes.
+    """Interactive commit message generator using an LLM.
 
-    This is a lightweight boilerplate. The real implementation should
-    inspect staged git changes (e.g. via `git diff --staged`) and then
-    call an LLM to produce a concise commit message.
+    Flow summary:
+    1. Retrieves staged diff via ``get_staged_diff``.
+    2. If no staged changes exist, informs the user and exits.
+    3. Formats a Conventional Commits prompt and calls the LLM to generate
+       a commit message.
+    4. Presents the generated message and lets the user Approve, Adjust or Abort.
+       - Approve: runs ``ai_toolbox.git_utils.run_commit`` with the generated message.
+       - Adjust: prompts the user for feedback, appends it to the LLM conversation and regenerates.
+       - Abort: exits without committing.
+
+    Args:
+        ctx: Click context - expects ``ctx.obj['model']`` to contain the LLM model id.
+
+    Errors & side effects:
+        - May raise/catch GitPython exceptions when reading diffs or committing.
+        - When approved, this command creates a git commit in the repository.
+        - AuthenticationError from LLMs is handled and reported to the user.
     """
     logger.info("Starting commit command")
 

@@ -26,6 +26,20 @@ logger = logging.getLogger(__name__)
 def _parse_review_response(
     response_content: str, review_name: str = "unknown"
 ) -> ReviewResult:
+    """Parse a JSON-formatted review response into a ReviewResult.
+
+    The helper expects ``response_content`` to be a JSON string with keys
+    like ``summary``, ``issues`` and ``suggestions``. On a JSON parsing
+    error it returns a ``ReviewResult`` containing a single parsing issue.
+
+    Args:
+        response_content: JSON string returned by an LLM assistant.
+        review_name: Optional name used for logging/context.
+
+    Returns:
+        A ``ReviewResult`` representing the parsed content or an error result
+        if parsing failed.
+    """
     try:
         data = json.loads(response_content)
 
@@ -97,6 +111,25 @@ def _execute_llm_call(
     max_tool_iterations: int = 5,
     tool_schemas: list[dict] | None = None,
 ):
+    """Execute an LLM-driven review loop supporting tool calls.
+
+    This helper sends ``messages`` to ``litellm.completion`` and supports
+    multi-turn tool invocation: when the model returns ``tool_calls`` the
+    helper executes the requested tools via ``TOOL_REGISTRY`` and appends
+    the results back into the conversation. The process repeats until the
+    model returns no tool calls or the ``max_tool_iterations`` limit is
+    reached.
+
+    Args:
+        messages: Conversation messages (system/user history) to send to the model.
+        model: LLM model id to use.
+        review_name: Logical name for logging and error messages.
+        max_tool_iterations: Maximum cycles of tool-calling allowed.
+        tool_schemas: Optional list of tool schemas exposed to the model.
+
+    Returns:
+        A ``ReviewResult`` built by parsing the model's final assistant message.
+    """
     iteration = 0
     last_message = ""
 
@@ -173,6 +206,11 @@ def _execute_llm_call(
 
 
 def _print_review_overview(review: ReviewResult) -> None:
+    """Print a short overview of a ReviewResult to the console.
+
+    The helper prints a compact summary line containing the review summary,
+    the number of issues found and the number of suggestions.
+    """
     click.echo(f"Summary: {review.summary}")
     click.echo(f"Issues found: {len(review.issues)}")
     click.echo(f"Suggestions: {len(review.suggestions)}")
@@ -184,9 +222,21 @@ def run_persona_review(
     persona_name: str,
     model: Optional[str] = None,
 ) -> ReviewResult:
-    """Run a single persona review using the provided template.
+    """Run a single persona-driven review.
 
-    Returns the raw assistant content (string). If model is None, returns a skip placeholder.
+    The function prepares a system message with ``persona_template`` and a
+    user message containing the diff. If ``model`` is provided it invokes
+    the LLM via ``_execute_llm_call``; otherwise it returns a ``no-model``
+    placeholder result.
+
+    Args:
+        diff: Unified diff text to review.
+        persona_template: System prompt describing the persona and expectations.
+        persona_name: Name used for logging and result identification.
+        model: Optional LLM model id; if None the call is skipped.
+
+    Returns:
+        A ``ReviewResult`` produced by the LLM or a placeholder when no model is provided.
     """
     logger.debug(
         f"run_persona_review called for persona {persona_name}"
@@ -216,9 +266,15 @@ def run_reviews_with_personas(
     personas_dict: dict[str, str],
     model: Optional[str] = None,
 ) -> dict[str, ReviewResult]:
-    """Run the performance, maintainability and security persona reviews.
+    """Run multiple persona reviews and return a mapping of persona->ReviewResult.
 
-    Returns a dict mapping persona name to the raw review string.
+    Args:
+        diff: The unified diff text to be reviewed.
+        personas_dict: Mapping of persona name to persona template string.
+        model: Optional model id; if None persona calls are skipped and placeholders are returned.
+
+    Returns:
+        A dict mapping each persona name to its ``ReviewResult``.
     """
     reviews: dict[str, ReviewResult] = {}
     for persona_name, persona_template in personas_dict.items():
@@ -238,9 +294,18 @@ def synthesize_perspectives(
     reviews: dict[str, ReviewResult],
     model: Optional[str] = None,
 ) -> ReviewResult:
-    """Synthesize multiple persona reviews into a single report using the lead architect persona.
+    """Synthesize several persona review results into a single consolidated report.
 
-    If model is None, returns a skip placeholder.
+    This constructs a combined text payload from the provided ``reviews`` and
+    asks the model (via ``SYNTHESIS_TEMPLATE``) to produce a consolidated
+    review. If ``model`` is None a ``no-model`` placeholder result is returned.
+
+    Args:
+        reviews: Mapping of persona name to ``ReviewResult``.
+        model: Optional model id used to drive the synthesis.
+
+    Returns:
+        A ``ReviewResult`` representing the synthesized report or a placeholder when no model is provided.
     """
     logger.debug("synthesize_perspectives called")
 
@@ -275,10 +340,20 @@ def synthesize_perspectives(
 def run_review_pipeline(
     diff: Optional[str] = None, model: Optional[str] = None
 ) -> ReviewResult:
-    """Lightweight review pipeline that returns a 200-char preview.
+    """High-level review pipeline coordinating analysis phases.
 
-    For now this integrates git diff retrieval via the calling command
-    and returns a minimal dictionary with a `preview` field.
+    The pipeline runs syntax analysis, logic analysis, persona-driven reviews
+    (performance, maintainability, security), synthesis and a self-consistency
+    pass. Each phase produces a ``ReviewResult`` and intermediate overviews
+    are printed to the console. The final, refined ``ReviewResult`` is returned.
+
+    Args:
+        diff: Unified diff text to analyze. If None an immediate ``no-model``-style
+              result with summary 'No diff provided - skipping review' is returned.
+        model: Optional LLM model id. If None LLM phases are skipped and placeholder results are used.
+
+    Returns:
+        A ``ReviewResult`` representing the final refined review.
     """
     logger.debug("run_review_pipeline called")
     if not diff:
@@ -368,11 +443,18 @@ def run_review_pipeline(
 def analyze_syntax(
     diff: str, model: Optional[str] = None
 ) -> ReviewResult:
-    """Analyze the provided diff for syntax/PEP8 issues using LLM.
+    """Analyze diff for syntax/style issues using an LLM-driven analysis.
 
-    If `model` is None the call is skipped and a placeholder string is returned.
+    The function builds a conversation using ``SYNTAX_REVIEW_TEMPLATE`` and
+    sends the diff to the model. When ``model`` is None a placeholder
+    ``ReviewResult`` is returned.
 
-    Returns the assistant's text content (string).
+    Args:
+        diff: Unified diff to analyze.
+        model: Optional LLM model id.
+
+    Returns:
+        A ``ReviewResult`` produced by the LLM or a placeholder if no model is provided.
     """
     logger.debug("analyze_syntax called")
 
@@ -401,10 +483,18 @@ def self_consistency_review(
     synthesis: ReviewResult,
     model: Optional[str] = None,
 ) -> ReviewResult:
-    """Critique and refine the synthesized report using the principal-architect persona.
+    """Critique and refine a synthesized report to produce a polished final review.
 
-    If model is None, returns a skip placeholder.
-    The output is a single polished final review (plain text).
+    The function asks the model (using ``SELF_CRITIQUE_TEMPLATE``) to check the
+    synthesized report for consistency and polish it. If ``model`` is None a
+    placeholder ``ReviewResult`` is returned.
+
+    Args:
+        synthesis: The synthesized ``ReviewResult`` to critique and refine.
+        model: Optional LLM model id.
+
+    Returns:
+        A refined ``ReviewResult`` or a placeholder when no model is provided.
     """
     logger.debug("self_consistency_review called")
 
@@ -433,11 +523,19 @@ def analyze_logic(
     model: Optional[str] = None,
     max_tool_iterations: int = 5,
 ) -> ReviewResult:
-    """Analyze the provided diff for logical issues using LLM.
+    """Analyze the diff for logic and higher-level issues using the LLM.
 
-    If `model` is None the call is skipped and a placeholder string is returned.
+    This function exposes the ``TOOL_REGISTRY`` schemas to the model so the
+    model can request local tool invocations (linters, scanners) and consume
+    their results. The orchestration is handled by ``_execute_llm_call``.
 
-    Returns the assistant's text content (string).
+    Args:
+        diff: Unified diff text to analyze.
+        model: Optional LLM model id; if None this returns a placeholder.
+        max_tool_iterations: Max tool-call cycles (passed to executor).
+
+    Returns:
+        A ``ReviewResult`` produced by the model or a placeholder if no model is provided.
     """
     logger.debug("analyze_logic called")
 

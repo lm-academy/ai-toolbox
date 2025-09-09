@@ -29,6 +29,12 @@ class ToolDescriptor:
 
 
 def _pytype_to_json_type(py: type) -> str:
+    """Map a Python builtin type to a JSON-schema style type name.
+
+    The function returns a best-effort mapping used when generating a
+    parameters schema for registered tools. Unknown types default to
+    "string" for safety.
+    """
     mapping = {
         str: "string",
         int: "integer",
@@ -37,10 +43,24 @@ def _pytype_to_json_type(py: type) -> str:
         list: "array",
         dict: "object",
     }
+    
     return mapping.get(py, "string")
 
 
 def _build_params_schema(func: t.Callable) -> dict:
+    """Build a simple JSON-like parameters schema from a Python callable.
+
+    The generated schema contains property names, simple types and
+    default values when available. Var positional/keyword parameters are
+    ignored for schema simplicity.
+
+    Args:
+        func: Callable to inspect.
+
+    Returns:
+        A dict representing a JSON-schema-like object with `properties`
+        and optionally `required` keys.
+    """
     sig = inspect.signature(func)
     props: dict[str, dict] = {}
     required: list[str] = []

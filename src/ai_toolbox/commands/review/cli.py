@@ -33,10 +33,18 @@ def review(
     output: str,
     output_path: str,
 ) -> None:
-    """Scaffold for the review command.
+    """Run the repository review pipeline and print or write the result.
 
-    The command is intentionally lightweight for now. The real review
-    pipeline will be implemented later.
+    The command collects a git diff (staged or uncommitted) and runs the
+    higher-level ``run_review_pipeline`` helper which coordinates syntax,
+    logic, persona and synthesis phases. The output is returned as a
+    ``ReviewResult`` and can be printed as markdown (default) or JSON.
+
+    Args:
+        ctx: Click context, expects ``ctx.obj['model']`` for LLM model id.
+        staged: If True review staged changes (default); otherwise review uncommitted changes.
+        output: Output format: "markdown" or "json".
+        output_path: Optional file path to write output; if not provided output is printed to stdout.
     """
     mode = "staged" if staged else "uncommitted"
     logger.info(f"Running review command in mode: {mode}")
