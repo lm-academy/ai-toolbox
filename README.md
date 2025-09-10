@@ -1,5 +1,20 @@
 # AI Toolbox
 
+This repository contains the code for the AI Toolbox Project from my Prompt Engineering course. The entire code for the course lectures can be found here: https://github.com/lm-academy/prompt-engineering-developers
+
+### ➡️ Course link (with a big discount 🙂): [https://www.lauromueller.com/courses/prompt-engineering](https://www.lauromueller.com/courses/prompt-engineering)
+
+**Check my other courses:**
+
+- 👉 [Python for DevOps: Mastering Real-World Automation](https://www.lauromueller.com/courses/python-devops)
+- 👉 [The Complete Docker and Kubernetes Course: From Zero to Hero](https://www.lauromueller.com/courses/docker-kubernetes)
+- 👉 [Mastering Terraform: From Beginner to Expert](https://www.lauromueller.com/courses/mastering-terraform)
+- 👉 [The Definitive Helm Course: From Beginner to Master](https://www.lauromueller.com/courses/definitive-helm-course)
+- 👉 [Mastering GitHub Actions: From Beginner to Expert](https://www.lauromueller.com/courses/mastering-github-actions)
+- 👉 [Write better code: 20 code smells and how to get rid of them](https://www.lauromueller.com/courses/writing-clean-code)
+
+## Description
+
 AI Toolbox is a lightweight, CLI-first Python utility for using LLMs to help with developer workflows. It provides small, focused commands and a minimal tool registry so LLMs can call local developer tools.
 
 ## Highlights
